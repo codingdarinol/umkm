@@ -7,7 +7,7 @@ Minimalist personal finance tracker for Linux desktop.
 ## Features
 
 - Offline-first with local SQLite storage
-- Under 20MB RAM, under 10MB binary
+- Lightweight 16MB binary
 - Quick transaction entry (Ctrl+N)
 - Monthly balance tracking
 - Category-based organization
