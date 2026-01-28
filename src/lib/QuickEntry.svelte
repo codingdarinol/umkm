@@ -1,0 +1,353 @@
+<script lang="ts">
+  import { createEventDispatcher, onMount } from 'svelte';
+  import { fade, scale } from 'svelte/transition';
+  import { backOut } from 'svelte/easing';
+  import { invoke } from '@tauri-apps/api/core';
+  import { X, DollarSign, Plus, Trash2 } from 'lucide-svelte';
+
+  const dispatch = createEventDispatcher();
+
+  let amount = '';
+  let description = '';
+  let category = 'Other';
+  let transactionType: 'expense' | 'income' = 'expense';
+  let categories: string[] = [];
+  let showAddCategory = false;
+  let newCategoryName = '';
+
+  async function loadCategories() {
+    try {
+      categories = await invoke<string[]>('get_categories');
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+      categories = ['Food & Dining', 'Transportation', 'Shopping', 'Entertainment', 'Bills & Utilities', 'Healthcare', 'Income', 'Other'];
+    }
+  }
+
+  async function handleAddCategory() {
+    if (!newCategoryName.trim()) return;
+    
+    try {
+      await invoke('add_category', { name: newCategoryName.trim() });
+      await loadCategories();
+      category = newCategoryName.trim();
+      newCategoryName = '';
+      showAddCategory = false;
+    } catch (error) {
+      console.error('Failed to add category:', error);
+      alert('Failed to add category. It might already exist.');
+    }
+  }
+
+  async function handleDeleteCategory(categoryName: string) {
+    if (!confirm(`Delete category "${categoryName}"?`)) return;
+    
+    try {
+      await invoke('delete_category', { name: categoryName });
+      await loadCategories();
+      if (category === categoryName) {
+        category = 'Other';
+      }
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      alert('Failed to delete category. Default categories cannot be deleted.');
+    }
+  }
+
+  function handleSubmit() {
+    const parsedAmount = parseFloat(amount);
+    if (!parsedAmount) {
+      return;
+    }
+
+    const finalAmount = transactionType === 'expense' ? -Math.abs(parsedAmount) : Math.abs(parsedAmount);
+
+    dispatch('add', {
+      amount: finalAmount,
+      description: description.trim() || null,
+      category: category || null,
+    });
+
+    amount = '';
+    description = '';
+    category = 'Other';
+    transactionType = 'expense';
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      if (showAddCategory) {
+        showAddCategory = false;
+      } else {
+        dispatch('close');
+      }
+    }
+    if (event.key === 'Enter' && event.ctrlKey && !showAddCategory) {
+      handleSubmit();
+    }
+  }
+
+  onMount(() => {
+    loadCategories();
+  });
+</script>
+
+<svelte:window on:keydown={handleKeydown} />
+
+<div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" in:fade={{ duration: 200 }} out:fade={{ duration: 150 }}>
+  <div class="bg-gray-900 rounded-2xl w-full max-w-md border border-gray-800 shadow-2xl overflow-hidden" in:scale={{ duration: 300, start: 0.9, easing: backOut }}>
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+          <DollarSign class="text-white" size={20} />
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Quick Entry</h3>
+          <p class="text-blue-100 text-xs">Add a transaction</p>
+        </div>
+      </div>
+      <button
+        on:click={() => dispatch('close')}
+        class="p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
+      >
+        <X size={20} />
+      </button>
+    </div>
+
+    <!-- Form -->
+    <form on:submit|preventDefault={handleSubmit} class="p-6 space-y-5">
+      <div>
+        <label for="amount" class="block text-sm font-semibold text-gray-300 mb-2">
+          Amount *
+        </label>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <span class="text-gray-500 text-lg">$</span>
+          </div>
+          <input
+            id="amount"
+            type="number"
+            step="0.01"
+            bind:value={amount}
+            placeholder="0.00"
+            class="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-lg font-semibold placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            autofocus
+            required
+          />
+        </div>
+        <p class="text-xs text-gray-500 mt-1.5">Use negative for expenses, positive for income</p>
+      </div>
+
+      <div>
+        <label for="description" class="block text-sm font-semibold text-gray-300 mb-2">
+          Description <span class="text-gray-600 font-normal">(optional)</span>
+        </label>
+        <input
+          id="description"
+          type="text"
+          bind:value={description}
+          placeholder="Coffee, groceries, salary..."
+          class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+        />
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label for="category" class="block text-sm font-semibold text-gray-300">
+            Category <span class="text-gray-600 font-normal">(optional)</span>
+          </label>
+          <button
+            type="button"
+            on:click={() => (showAddCategory = !showAddCategory)}
+            class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium"
+          >
+            <Plus size={14} />
+            Add Category
+          </button>
+        </div>
+
+        {#if showAddCategory}
+          <div class="mb-3 p-3 bg-gray-800 rounded-xl border border-gray-700">
+            <div class="flex gap-2">
+              <input
+                type="text"
+                bind:value={newCategoryName}
+                placeholder="Enter category name..."
+                class="flex-1 px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                on:keydown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCategory())}
+              />
+              <button
+                type="button"
+                on:click={handleAddCategory}
+                class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        {/if}
+
+        <div class="relative">
+          <select
+            id="category"
+            bind:value={category}
+            class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+          >
+            {#each categories as cat}
+              <option value={cat}>{cat}</option>
+            {/each}
+          </select>
+          {#if categories.length > 8 && !['Food & Dining', 'Transportation', 'Shopping', 'Entertainment', 'Bills & Utilities', 'Healthcare', 'Income', 'Other'].includes(category)}
+            <button
+              type="button"
+              on:click={() => handleDeleteCategory(category)}
+              class="absolute right-12 top-1/2 -translate-y-1/2 p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
+              title="Delete custom category"
+            >
+              <Trash2 size={14} />
+            </button>
+          {/if}
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button
+          type="submit"
+          class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20"
+        >
+          Add Transaction
+        </button>
+        <button
+          type="button"
+          on:click={() => dispatch('close')}
+          class="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-semibold transition-all border border-gray-700"
+        >
+          Cancel
+        </button>
+      </div>
+      
+      <p class="text-xs text-gray-600 text-center pt-2">
+        Press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400">Ctrl+Enter</kbd> to submit quickly
+      </p>
+    </form>
+  </div>
+</div>
+
+<div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+  <div class="bg-gray-900 rounded-2xl w-full max-w-md border border-gray-800 shadow-2xl overflow-hidden">
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+          <DollarSign class="text-white" size={20} />
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Quick Entry</h3>
+          <p class="text-blue-100 text-xs">Add a transaction</p>
+        </div>
+      </div>
+      <button
+        on:click={() => dispatch('close')}
+        class="p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
+      >
+        <X size={20} />
+      </button>
+    </div>
+
+    <!-- Form -->
+    <form on:submit|preventDefault={handleSubmit} class="p-6 space-y-5">
+      <div>
+        <label class="block text-sm font-semibold text-gray-300 mb-2">
+          Type *
+        </label>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            on:click={() => (transactionType = 'expense')}
+            class="flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-300 {transactionType === 'expense'
+              ? 'bg-red-500 text-white shadow-lg shadow-red-500/20 scale-105'
+              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:scale-105'}"
+          >
+            Expense
+          </button>
+          <button
+            type="button"
+            on:click={() => (transactionType = 'income')}
+            class="flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-300 {transactionType === 'income'
+              ? 'bg-green-500 text-white shadow-lg shadow-green-500/20 scale-105'
+              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:scale-105'}"
+          >
+            Income
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label for="amount" class="block text-sm font-semibold text-gray-300 mb-2">
+          Amount *
+        </label>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <span class="text-gray-500 text-lg">$</span>
+          </div>
+          <input
+            id="amount"
+            type="number"
+            step="0.01"
+            bind:value={amount}
+            placeholder="0.00"
+            class="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-lg font-semibold placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            required
+          />
+        </div>
+      </div>
+
+      <div>
+        <label for="description" class="block text-sm font-semibold text-gray-300 mb-2">
+          Description <span class="text-gray-600 font-normal">(optional)</span>
+        </label>
+        <input
+          id="description"
+          type="text"
+          bind:value={description}
+          placeholder="Coffee, groceries, salary..."
+          class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+        />
+      </div>
+
+      <div>
+        <label for="category" class="block text-sm font-semibold text-gray-300 mb-2">
+          Category <span class="text-gray-600 font-normal">(optional)</span>
+        </label>
+        <select
+          id="category"
+          bind:value={category}
+          class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+        >
+          {#each categories as cat}
+            <option value={cat}>{cat}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button
+          type="submit"
+          class="flex-1 {transactionType === 'expense' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' : 'bg-green-500 hover:bg-green-600 shadow-green-500/20'} text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg"
+        >
+          Add {transactionType === 'expense' ? 'Expense' : 'Income'}
+        </button>
+        <button
+          type="button"
+          on:click={() => dispatch('close')}
+          class="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-semibold transition-all border border-gray-700"
+        >
+          Cancel
+        </button>
+      </div>
+      
+      <p class="text-xs text-gray-600 text-center pt-2">
+        Press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400">Ctrl+Enter</kbd> to submit quickly
+      </p>
+    </form>
+  </div>
+</div>
