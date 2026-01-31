@@ -13,12 +13,14 @@ sha256sums=('ff784a3af9e6f34a6c354a59e9711e236eaed3e01297070e6bef285c5e8f7d90')
 
 prepare() {
     cd "$srcdir/Spent-$pkgver"
+    export LIBSQLITE3_SYS_USE_PKG_CONFIG=0
     npm install
 }
 
 build() {
     cd "$srcdir/Spent-$pkgver"
     export LIBSQLITE3_SYS_USE_PKG_CONFIG=0
+    cargo clean -p libsqlite3-sys || true
     npm run tauri build
 }
 
