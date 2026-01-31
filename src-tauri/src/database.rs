@@ -450,14 +450,6 @@ impl Database {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ImportedTransaction {
-    pub amount: String,
-    pub description: String,
-    pub category: String,
-    pub date: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct ImportResult {
     pub success_count: usize,
     pub error_count: usize,
