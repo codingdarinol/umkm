@@ -15,12 +15,12 @@ jobs:
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             artifact_name: spent_amd64.deb
-            artifact_path: src-tauri/target/release/bundle/deb/*.deb
-            appimage_path: src-tauri/target/release/bundle/appimage/*.AppImage*
+            artifact_path: src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+            appimage_path: src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_name: spent_x64-setup.exe
-            artifact_path: src-tauri/target/release/bundle/nsis/*setup*.exe
+            artifact_path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           - platform: macos-latest
             target: x86_64-apple-darwin
             artifact_name: spent.app.tar.gz
@@ -111,10 +111,12 @@ jobs:
 
       - name: Upload .exe artifact (Windows)
         if: matrix.platform == 'windows-latest'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: spent-windows-exe
           path: ${{ matrix.artifact_path }}
+          if-no-files-found: warn
 
       - name: Archive macOS app
         if: matrix.platform == 'macos-latest'
@@ -133,6 +135,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
     
     steps:
       - uses: actions/checkout@v4
