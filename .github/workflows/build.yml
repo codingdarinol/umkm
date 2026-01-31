@@ -65,8 +65,8 @@ jobs:
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
           ./linuxdeploy-x86_64.AppImage --appimage-extract
-          sudo rm -f /usr/local/bin/linuxdeploy
-          sudo mv squashfs-root/AppRun /usr/local/bin/linuxdeploy
+          sudo find /usr/local/bin -L -name 'linuxdeploy' -exec rm -- {} +
+          sudo mv -f squashfs-root/AppRun /usr/local/bin/linuxdeploy
           sudo cp -r squashfs-root/usr/* /usr/local/
 
       - name: Cache cargo registry
