@@ -6,7 +6,7 @@ Minimalist personal finance tracker for Linux desktop with cross-platform suppor
 
 **[View More Screenshots](src-tauri/icons/Media)**
 
-> **Note:** Version 1.0.0 is "feature-complete," but has primarily been tested on Arch Linux. If you encounter issues on other distros or OSs, please open an Issue!
+> **Note:** Version 1.0.0 is "feature-complete" but has primarily been tested on Arch Linux. If you encounter issues on other distros or OSs, please open an Issue!
 
 ## Features
 
