@@ -32,3 +32,10 @@ coverage
 
 # Tauri
 /src-tauri/target
+
+# AUR build artifacts
+AUR/*.tar.gz
+AUR/pkg/
+AUR/src/
+AUR/spent/
+AUR/Spent-*/
