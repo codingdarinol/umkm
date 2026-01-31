@@ -64,8 +64,8 @@ jobs:
           # Install linuxdeploy for AppImage bundling
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
-          # Extract and run without FUSE for CI compatibility
           ./linuxdeploy-x86_64.AppImage --appimage-extract
+          sudo rm -f /usr/local/bin/linuxdeploy
           sudo mv squashfs-root/AppRun /usr/local/bin/linuxdeploy
           sudo cp -r squashfs-root/usr/* /usr/local/
 
