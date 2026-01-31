@@ -63,10 +63,8 @@ jobs:
           
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
-          ./linuxdeploy-x86_64.AppImage --appimage-extract
           mkdir -p ~/.local/bin
-          mv squashfs-root/AppRun ~/.local/bin/linuxdeploy
-          chmod +x ~/.local/bin/linuxdeploy
+          mv linuxdeploy-x86_64.AppImage ~/.local/bin/linuxdeploy
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Cache cargo registry
