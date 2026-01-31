@@ -162,6 +162,12 @@ jobs:
           sed -i "s/^pkgver=.*/pkgver=${{ steps.get_version.outputs.VERSION }}/" PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
       
+      - name: Update checksum
+        run: |
+          cd AUR
+          SHA256=$(curl -sL "https://github.com/FrogSnot/Spent/archive/v${{ steps.get_version.outputs.VERSION }}.tar.gz" | sha256sum | awk '{print $1}')
+          sed -i "s/^sha256sums=.*/sha256sums=('$SHA256')/" PKGBUILD
+      
       - name: Generate .SRCINFO
         uses: Morganamilo/actions-makepkg@v2
         with:
