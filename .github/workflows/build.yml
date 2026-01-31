@@ -61,13 +61,13 @@ jobs:
             librsvg2-dev \
             libfuse2
           
-          # Install linuxdeploy for AppImage bundling
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
           ./linuxdeploy-x86_64.AppImage --appimage-extract
-          sudo find /usr/local/bin -L -name 'linuxdeploy' -exec rm -- {} +
-          sudo mv -f squashfs-root/AppRun /usr/local/bin/linuxdeploy
-          sudo cp -r squashfs-root/usr/* /usr/local/
+          mkdir -p ~/.local/bin
+          mv squashfs-root/AppRun ~/.local/bin/linuxdeploy
+          chmod +x ~/.local/bin/linuxdeploy
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Cache cargo registry
         uses: actions/cache@v4
