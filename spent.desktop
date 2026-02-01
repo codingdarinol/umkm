@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Spent
+Comment=Minimalist personal finance tracker
+Exec=spent
+Icon=spent
+Categories=Office;Finance;
+Terminal=false
+StartupWMClass=spent
