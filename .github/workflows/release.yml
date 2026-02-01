@@ -55,12 +55,20 @@ jobs:
       - name: Update PKGBUILD-bin
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
-          DEB_FILE="src-tauri/target/release/bundle/deb/spent_${VERSION}_amd64.deb"
+          DEB_FILE=$(find src-tauri/target/release/bundle/deb -name "*.deb" | head -n 1)
+          
+          if [ -z "$DEB_FILE" ]; then
+            echo "Error: No .deb file found in src-tauri/target/release/bundle/deb/"
+            ls -R src-tauri/target/release
+            exit 1
+          fi
+          
+          echo "Found DEB file: $DEB_FILE"
           DEB_SHA=$(sha256sum "$DEB_FILE" | cut -d' ' -f1)
           
           sed -i "s/pkgver=.*/pkgver=${VERSION}/" AUR/PKGBUILD-bin
           sed -i "s/_pkgrealversion=.*/_pkgrealversion=${VERSION}/" AUR/PKGBUILD-bin
-          sed -i "s/sha256sums_x86_64=.*/sha256sums_x86_64=('${DEB_SHA}')/" AUR/PKGBUILD-bi
+          sed -i "s/sha256sums_x86_64=.*/sha256sums_x86_64=('${DEB_SHA}')/" AUR/PKGBUILD-bin
           
           mkdir -p release-bin
           cp AUR/PKGBUILD-bin release-bin/PKGBUILD
