@@ -4,7 +4,7 @@
   "description": "A minimalist, local-first personal finance tracker",
   "type": "module",
   "scripts": {
-    "sync-version": "node scripts/sync-version.js",
+    "sync-version": "node scripts/version.js",
     "dev": "npm run sync-version && vite",
     "build": "npm run sync-version && vite build",
     "preview": "vite preview",
