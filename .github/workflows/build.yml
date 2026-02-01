@@ -206,3 +206,62 @@ jobs:
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           commit_message: "Update to version ${{ steps.get_version.outputs.VERSION }}"
+
+  aur-publish-bin:
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Wait for release assets
+        run: |
+          echo "Waiting for .deb file to be available..."
+          sleep 60
+      
+      - name: Update PKGBUILD-bin version
+        run: |
+          cd AUR
+          sed -i "s/^pkgver=.*/pkgver=${{ steps.get_version.outputs.VERSION }}/" PKGBUILD-bin
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD-bin
+          sed -i "s/^_pkgrealversion=.*/_pkgrealversion=${{ steps.get_version.outputs.VERSION }}/" PKGBUILD-bin
+      
+      - name: Update checksums
+        run: |
+          cd AUR
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          
+          LICENSE_SHA=$(curl -sL "https://raw.githubusercontent.com/FrogSnot/Spent/v${VERSION}/LICENSE" | sha256sum | awk '{print $1}')
+          
+          README_SHA=$(curl -sL "https://raw.githubusercontent.com/FrogSnot/Spent/v${VERSION}/README.md" | sha256sum | awk '{print $1}')
+          
+          DEB_SHA=$(curl -sL "https://github.com/FrogSnot/Spent/releases/download/v${VERSION}/spent_${VERSION}_amd64.deb" | sha256sum | awk '{print $1}')
+          
+          sed -i "s/^sha256sums=.*/sha256sums=('${LICENSE_SHA}'/" PKGBUILD-bin
+          sed -i "s/'[^']*')/'${README_SHA}')/" PKGBUILD-bin
+          sed -i "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('${DEB_SHA}')/" PKGBUILD-bin
+      
+      - name: Install makepkg dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pacman-package-manager
+      
+      - name: Generate .SRCINFO
+        run: |
+          cd AUR
+          makepkg --printsrcinfo -p PKGBUILD-bin > .SRCINFO
+      
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        with:
+          pkgname: spent-bin
+          pkgbuild: AUR/PKGBUILD-bin
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to version ${{ steps.get_version.outputs.VERSION }}"
