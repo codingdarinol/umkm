@@ -39,6 +39,29 @@ jobs:
       - name: Build
         run: npm run tauri build
 
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update PKGBUILD
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          TARBALL_URL="https://github.com/FrogSnot/Spent/archive/v${VERSION}.tar.gz"
+          TARBALL_SHA=$(curl -sL "$TARBALL_URL" | sha256sum | cut -d' ' -f1)
+          
+          sed -i "s/pkgver=.*/pkgver=${VERSION}/" AUR/PKGBUILD
+          sed -i "s/sha256sums=.*/sha256sums=('${TARBALL_SHA}')/" AUR/PKGBUILD
+
+      - name: Update PKGBUILD-bin
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          DEB_FILE="src-tauri/target/release/bundle/deb/spent_${VERSION}_amd64.deb"
+          DEB_SHA=$(sha256sum "$DEB_FILE" | cut -d' ' -f1)
+          
+          sed -i "s/pkgver=.*/pkgver=${VERSION}/" AUR/PKGBUILD-bin
+          sed -i "s/_pkgrealversion=.*/_pkgrealversion=${VERSION}/" AUR/PKGBUILD-bin
+          sed -i "s/sha256sums_x86_64=.*/sha256sums_x86_64=('${DEB_SHA}')/" AUR/PKGBUILD-bin
+
       - name: Upload Release
         uses: softprops/action-gh-release@v1
         with:
@@ -48,3 +71,25 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to AUR (spent-bin)
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: spent-bin
+          pkgbuild: ./AUR/PKGBUILD-bin
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update to ${{ github.ref_name }}
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+
+      - name: Publish to AUR (spent)
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: spent
+          pkgbuild: ./AUR/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update to ${{ github.ref_name }}
+          ssh_keyscan_types: rsa,ecdsa,ed25519
