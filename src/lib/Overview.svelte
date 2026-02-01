@@ -35,9 +35,9 @@
     date: string;
   }>;
 
-  function formatCurrency(cents: number): string {
+  $: formatCurrency = (cents: number): string => {
     return formatCurrencyHelper(cents, $currencySettings);
-  }
+  };
 
   function formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -146,15 +146,15 @@
 </script>
 
 <div class="flex h-full w-full">
-  <div class="flex-1 p-8 space-y-6 overflow-auto min-w-0">
-    <div class="flex items-center justify-between">
+  <div class="flex-1 p-4 lg:p-8 space-y-4 lg:space-y-6 overflow-auto min-w-0">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
       <div>
-        <h2 class="text-3xl font-black text-white mb-1">Dashboard</h2>
-        <p class="text-sm text-gray-500">Track your spending</p>
+        <h2 class="text-2xl lg:text-3xl font-black text-white mb-1">Dashboard</h2>
+        <p class="text-xs lg:text-sm text-gray-500">Track your spending</p>
       </div>
       <div class="flex items-center gap-2">
-        <Calendar size={18} class="text-gray-400" />
-        <div class="min-w-[200px]">
+        <Calendar size={18} class="text-gray-400 hidden sm:block" />
+        <div class="min-w-[160px] sm:min-w-[200px]">
           <Dropdown
             value={selectedMonth}
             options={monthOptions}
@@ -164,12 +164,12 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
       <div class="bg-gray-950 rounded-xl p-6 border-2 {monthlyBalance >= 0 ? 'border-blue-500/30 hover:border-blue-500/50' : 'border-red-500/30 hover:border-red-500/50'} shadow-lg hover:scale-[1.02] transition-all duration-300 ease-out relative overflow-hidden">
         <div class="absolute inset-0 bg-gradient-to-br {monthlyBalance >= 0 ? 'from-blue-500/5' : 'from-red-500/5'} to-transparent pointer-events-none"></div>
         <div class="relative">
-          <p class="text-gray-500 text-xs font-medium mb-3 uppercase tracking-wider">{formatMonthLabel(selectedMonth)}</p>
-          <p class="text-5xl font-black tracking-tight mb-1 {monthlyBalance >= 0 ? 'text-white' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
+          <p class="text-gray-500 text-xs font-medium mb-2 lg:mb-3 uppercase tracking-wider">{formatMonthLabel(selectedMonth)}</p>
+          <p class="text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight mb-1 {monthlyBalance >= 0 ? 'text-white' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
             {formatCurrency(monthlyBalance)}
           </p>
           <div class="flex items-center gap-2 mt-3">
@@ -187,8 +187,8 @@
       <div class="bg-gray-950 rounded-xl p-6 border-2 {allTimeBalance >= 0 ? 'border-purple-500/30 hover:border-purple-500/50' : 'border-red-500/30 hover:border-red-500/50'} shadow-lg hover:scale-[1.02] transition-all duration-300 ease-out relative overflow-hidden">
         <div class="absolute inset-0 bg-gradient-to-br {allTimeBalance >= 0 ? 'from-purple-500/5' : 'from-red-500/5'} to-transparent pointer-events-none"></div>
         <div class="relative">
-          <p class="text-gray-500 text-xs font-medium mb-3 uppercase tracking-wider">All Time</p>
-          <p class="text-5xl font-black tracking-tight mb-1 {allTimeBalance >= 0 ? 'text-white' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
+          <p class="text-gray-500 text-xs font-medium mb-2 lg:mb-3 uppercase tracking-wider">All Time</p>
+          <p class="text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight mb-1 {allTimeBalance >= 0 ? 'text-white' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
             {formatCurrency(allTimeBalance)}
           </p>
           <div class="flex items-center gap-2 mt-3">
@@ -273,12 +273,12 @@
     </div>
   </div>
 
-  <div class="w-96 bg-gray-900 border-l border-gray-800 flex flex-col h-full flex-shrink-0">
-    <div class="p-6 pb-4 flex-shrink-0">
+  <div class="hidden xl:flex xl:w-80 2xl:w-96 bg-gray-900 border-l border-gray-800 flex-col h-full flex-shrink-0">
+    <div class="p-4 xl:p-6 pb-4 flex-shrink-0">
       <h3 class="text-lg font-bold text-white">Statistics</h3>
     </div>
 
-    <div class="flex-1 px-6 pb-6 overflow-y-auto">
+    <div class="flex-1 px-4 xl:px-6 pb-4 xl:pb-6 overflow-y-auto">
       <div class="space-y-3">
       <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700/50">
         <p class="text-gray-400 text-xs font-medium mb-4 uppercase tracking-wider">Cash Flow</p>

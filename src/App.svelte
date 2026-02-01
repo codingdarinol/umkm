@@ -77,9 +77,15 @@
     
     try {
       const months = await invoke<string[]>('get_available_months', { containerId: selectedContainer.id });
-      availableMonths = months.length > 0 ? months : [getCurrentMonth()];
+      const currentMonth = getCurrentMonth();
+      
+      const monthSet = new Set(months);
+      monthSet.add(currentMonth);
+      
+      availableMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a));
+      
       if (!selectedMonth) {
-        selectedMonth = getCurrentMonth();
+        selectedMonth = currentMonth;
       }
     } catch (error) {
       console.error('Failed to load months:', error);
@@ -281,7 +287,7 @@
 </script>
 
 <main class="min-h-screen bg-gray-950 text-gray-100 flex">
-  <aside class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
+  <aside class="w-56 lg:w-64 bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0 hidden sm:flex">
     <div class="p-6 border-b border-gray-800">
       <h1 class="text-2xl font-black text-white tracking-tight">Spent</h1>
       <p class="text-xs text-gray-500 mt-1">Finance Tracker</p>

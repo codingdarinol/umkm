@@ -12,9 +12,9 @@
     date: string;
   }>;
 
-  function formatCurrency(cents: number): string {
+  $: formatCurrency = (cents: number): string => {
     return formatCurrencyHelper(cents, $currencySettings);
-  }
+  };
 
   function formatDate(dateString: string): string {
     const date = new Date(dateString);

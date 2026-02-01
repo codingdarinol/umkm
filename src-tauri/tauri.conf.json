@@ -15,8 +15,8 @@
         "title": "Spent - Personal Finance Tracker",
         "width": 900,
         "height": 650,
-        "minWidth": 800,
-        "minHeight": 600,
+        "minWidth": 600,
+        "minHeight": 500,
         "resizable": true,
         "fullscreen": false
       }

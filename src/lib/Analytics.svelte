@@ -8,9 +8,9 @@
   export let transactions: Array<any>;
   export let monthlyBalance: number;
 
-  function formatCurrency(cents: number): string {
+  $: formatCurrency = (cents: number): string => {
     return formatCurrencyHelper(cents, $currencySettings);
-  }
+  };
 
   function getCategoryColor(index: number): string {
     const colors = [
@@ -44,14 +44,14 @@
   $: topCategory = categoryTotals.length > 0 ? categoryTotals[0] : null;
 </script>
 
-<div class="p-8 space-y-6 h-full overflow-auto">
+<div class="p-4 lg:p-8 space-y-4 lg:space-y-6 h-full overflow-auto">
   <div>
-    <h2 class="text-3xl font-black text-white mb-1">Analytics</h2>
-    <p class="text-sm text-gray-500">Understand your spending patterns</p>
+    <h2 class="text-2xl lg:text-3xl font-black text-white mb-1">Analytics</h2>
+    <p class="text-xs lg:text-sm text-gray-500">Understand your spending patterns</p>
   </div>
 
-  <div class="grid grid-cols-1 gap-6">
-    <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg p-6">
+  <div class="grid grid-cols-1 gap-4 lg:gap-6">
+    <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg p-4 lg:p-6">
       <div class="flex items-center gap-3 mb-6">
         <div class="p-2 bg-purple-500/10 rounded-lg">
           <PieChart class="text-purple-400" size={20} />
@@ -107,8 +107,8 @@
       </div>
 
       {#if categoryTotals.length > 0}
-        <div class="flex items-center justify-center gap-12">
-          <svg width="240" height="240" viewBox="0 0 240 240" class="transform -rotate-90">
+        <div class="flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-12">
+          <svg width="240" height="240" viewBox="0 0 240 240" class="transform -rotate-90 flex-shrink-0">
             <circle
               cx="120"
               cy="120"
