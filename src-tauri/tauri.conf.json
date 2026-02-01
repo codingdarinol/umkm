@@ -57,7 +57,7 @@
       },
       "deb": {
         "depends": [],
-        "desktopTemplate": "Name=Spent\nExec=spent-app\nIcon=spent\nType=Application\nCategories=Office;Finance;\nComment=Minimalist personal finance tracker"
+        "desktopTemplate": "spent.desktop"
       }
     },
     "windows": {
