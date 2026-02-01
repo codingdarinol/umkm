@@ -230,6 +230,7 @@ jobs:
           sed -i "s/^pkgver=.*/pkgver=${{ steps.get_version.outputs.VERSION }}/" PKGBUILD-bin
           sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD-bin
           sed -i "s/^_pkgrealversion=.*/_pkgrealversion=${{ steps.get_version.outputs.VERSION }}/" PKGBUILD-bin
+          grep -E "^pkgver=|^pkgrel=|^_pkgrealversion=" PKGBUILD-bin
       
       - name: Update checksums
         run: |
@@ -245,6 +246,8 @@ jobs:
           sed -i "s/^sha256sums=.*/sha256sums=('${LICENSE_SHA}'/" PKGBUILD-bin
           sed -i "s/'[^']*')/'${README_SHA}')/" PKGBUILD-bin
           sed -i "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('${DEB_SHA}')/" PKGBUILD-bin
+          
+          grep -A1 "^sha256sums" PKGBUILD-bin
       
       - name: Install makepkg dependencies
         run: |
@@ -255,6 +258,7 @@ jobs:
         run: |
           cd AUR
           makepkg --printsrcinfo -p PKGBUILD-bin > .SRCINFO
+          cat .SRCINFO
       
       - name: Publish to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
