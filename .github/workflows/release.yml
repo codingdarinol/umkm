@@ -73,8 +73,9 @@ jobs:
           
           sed -i "s/pkgver=.*/pkgver=${VERSION}/" AUR/PKGBUILD-bin
           sed -i "s/_pkgrealversion=.*/_pkgrealversion=${VERSION}/" AUR/PKGBUILD-bin
-          sed -i "s/sha256sums=.*/sha256sums=('${LICENSE_SHA}'\\n            '${README_SHA}')/" AUR/PKGBUILD-bin
-          sed -i "s/sha256sums_x86_64=.*/sha256sums_x86_64=('${DEB_SHA}')/" AUR/PKGBUILD-bin
+          
+          perl -i -pe "BEGIN{undef $/;} s/sha256sums=\([^)]+\)/sha256sums=('${LICENSE_SHA}'\\n            '${README_SHA}')/smg" AUR/PKGBUILD-bin
+          perl -i -pe "s/sha256sums_x86_64=\([^)]+\)/sha256sums_x86_64=('${DEB_SHA}')/g" AUR/PKGBUILD-bin
           
           mkdir -p release-bin
           cp AUR/PKGBUILD-bin release-bin/PKGBUILD
