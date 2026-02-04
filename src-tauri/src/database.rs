@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result};
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -223,18 +223,51 @@ impl Database {
         transactions.collect()
     }
 
+    pub fn get_transactions_by_account(
+        &self,
+        container_id: i64,
+        account_id: i64,
+        limit: Option<i64>,
+    ) -> Result<Vec<Transaction>> {
+        let conn = self.conn.lock().unwrap();
+        let base = "SELECT id, amount, description, category, date, container_id, COALESCE(account_id, 0) as account_id
+                   FROM transactions
+                   WHERE container_id = ?1 AND account_id = ?2
+                   ORDER BY date DESC";
+        let query = match limit {
+            Some(l) => format!("{} LIMIT {}", base, l),
+            None => base.to_string(),
+        };
+
+        let mut stmt = conn.prepare(&query)?;
+        let transactions = stmt.query_map(params![container_id, account_id], |row| {
+            Ok(Transaction {
+                id: row.get(0)?,
+                amount: row.get(1)?,
+                description: row.get(2)?,
+                category: row.get(3)?,
+                date: row.get(4)?,
+                container_id: row.get(5)?,
+                account_id: row.get(6)?,
+            })
+        })?;
+
+        transactions.collect()
+    }
+
     pub fn update_transaction(
         &self,
         id: i64,
         amount: i64,
         description: String,
         category: String,
+        account_id: i64,
     ) -> Result<Transaction> {
         let conn = self.conn.lock().unwrap();
         
         conn.execute(
-            "UPDATE transactions SET amount = ?1, description = ?2, category = ?3 WHERE id = ?4",
-            [&amount.to_string(), &description, &category, &id.to_string()],
+            "UPDATE transactions SET amount = ?1, description = ?2, category = ?3, account_id = ?4 WHERE id = ?5",
+            params![amount, description, category, account_id, id],
         )?;
 
         let transaction = conn.query_row(

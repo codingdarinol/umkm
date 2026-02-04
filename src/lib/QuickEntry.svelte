@@ -132,8 +132,8 @@
           <DollarSign class="text-white" size={20} />
         </div>
         <div>
-          <h3 class="text-xl font-bold text-white">Quick Entry</h3>
-          <p class="text-red-100 text-xs">Add a transaction</p>
+          <h3 class="text-xl font-bold text-white">Entry Cepat</h3>
+          <p class="text-red-100 text-xs">Masukkan Transaksi</p>
         </div>
       </div>
       <button
@@ -147,7 +147,7 @@
     <form on:submit|preventDefault={handleSubmit} class="p-6 space-y-5">
       <div>
         <label for="amount" class="block text-sm font-semibold text-gray-300 mb-2">
-          Amount *
+          Jumlah *
         </label>
         <div class="relative">
           <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -169,7 +169,7 @@
 
       <div>
         <label for="description" class="block text-sm font-semibold text-gray-300 mb-2">
-          Description <span class="text-gray-600 font-normal">(optional)</span>
+          Deskripsi <span class="text-gray-600 font-normal">(opsional)</span>
         </label>
         <input
           id="description"
@@ -265,8 +265,8 @@
           <DollarSign class="text-white" size={20} />
         </div>
         <div>
-          <h3 class="text-xl font-bold text-white">Quick Entry</h3>
-          <p class="{transactionType === 'expense' ? 'text-red-100' : 'text-green-100'} text-xs">Add a transaction</p>
+          <h3 class="text-xl font-bold text-white">Entry Cepat</h3>
+          <p class="{transactionType === 'expense' ? 'text-red-100' : 'text-green-100'} text-xs">Masukkan Transaksi</p>
         </div>
       </div>
       <button
@@ -280,7 +280,7 @@
     <form on:submit|preventDefault={handleSubmit} class="p-6 space-y-5 overflow-visible">
       <div class="overflow-visible">
         <label class="block text-sm font-semibold text-gray-300 mb-2">
-          Type *
+          Tipe
         </label>
         <div class="flex gap-2 p-1">
           <button
@@ -306,7 +306,7 @@
 
       <div>
         <label for="amount" class="block text-sm font-semibold text-gray-300 mb-2">
-          Amount *
+          Jumlah *
         </label>
         <div class="relative">
           <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -326,7 +326,7 @@
 
       <div>
         <label for="description" class="block text-sm font-semibold text-gray-300 mb-2">
-          Description <span class="text-gray-600 font-normal">(optional)</span>
+          Deskripsi <span class="text-gray-600 font-normal">(opsional)</span>
         </label>
         <input
           id="description"

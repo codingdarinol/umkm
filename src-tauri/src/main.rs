@@ -37,6 +37,17 @@ fn get_transactions(
 }
 
 #[tauri::command]
+fn get_transactions_by_account(
+    container_id: i64,
+    account_id: i64,
+    limit: Option<i64>,
+    db: tauri::State<Arc<Database>>,
+) -> Result<Vec<Transaction>, String> {
+    db.get_transactions_by_account(container_id, account_id, limit)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn get_monthly_balance(container_id: i64, db: tauri::State<Arc<Database>>) -> Result<i64, String> {
     db.get_monthly_balance(container_id).map_err(|e| e.to_string())
 }
@@ -129,9 +140,10 @@ fn update_transaction(
     amount: i64,
     description: String,
     category: String,
+    account_id: i64,
     db: tauri::State<Arc<Database>>,
 ) -> Result<Transaction, String> {
-    db.update_transaction(id, amount, description, category)
+    db.update_transaction(id, amount, description, category, account_id)
         .map_err(|e| e.to_string())
 }
 
@@ -201,6 +213,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             add_transaction,
             get_transactions,
+            get_transactions_by_account,
             get_monthly_balance,
             get_all_time_balance,
             delete_transaction,

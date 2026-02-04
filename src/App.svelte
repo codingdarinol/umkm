@@ -197,15 +197,17 @@
   }
 
   async function handleUpdateTransaction(event: CustomEvent) {
-    const { id, amount, description, category } = event.detail;
+    const { id, amount, description, category, accountId } = event.detail;
     try {
       await invoke('update_transaction', {
         id,
         amount,
         description,
         category,
+        accountId,
       });
       await loadData();
+      await loadAccountBalances();
       showEditTransaction = false;
       editingTransaction = null;
     } catch (error) {
@@ -479,6 +481,7 @@
   {#if showEditTransaction && editingTransaction}
     <EditTransaction
       transaction={editingTransaction}
+      accounts={accounts}
       on:save={handleUpdateTransaction}
       on:close={() => {
         showEditTransaction = false;

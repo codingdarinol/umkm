@@ -8,12 +8,24 @@
 
   const dispatch = createEventDispatcher();
 
+  interface Account {
+    id: number;
+    name: string;
+    account_type: string;
+    opening_balance: number;
+    container_id: number;
+    created_at: string;
+  }
+
+  export let accounts: Account[] = [];
+
   export let transaction: {
     id: number;
     amount: number;
     description: string;
     category: string;
     date: string;
+    account_id: number;
   };
 
   let amount = '';
@@ -21,6 +33,7 @@
   let category = '';
   let transactionType: 'expense' | 'income' = 'expense';
   let categories: string[] = [];
+  let accountId: number | null = null;
 
   async function loadCategories() {
     try {
@@ -37,22 +50,27 @@
     description = transaction.description;
     category = transaction.category;
     transactionType = transaction.amount >= 0 ? 'income' : 'expense';
+    accountId = transaction.account_id ? transaction.account_id : null;
   }
 
   async function handleSubmit() {
     const parsedAmount = parseFloat(amount);
-    if (!parsedAmount) {
+    if (!parsedAmount || accountId === null) {
       return;
     }
 
     const amountInCents = Math.round(parsedAmount * 100);
-    const finalAmount = transactionType === 'expense' ? -Math.abs(amountInCents) : Math.abs(amountInCents);
+    const selectedAccount = accounts.find(acc => acc.id === accountId);
+    const isAsset = selectedAccount?.account_type === 'asset';
+    const signedAmount = transactionType === 'expense' ? -Math.abs(amountInCents) : Math.abs(amountInCents);
+    const finalAmount = isAsset ? signedAmount : -signedAmount;
 
     dispatch('save', {
       id: transaction.id,
       amount: finalAmount,
       description: description.trim() || transaction.category,
       category: category || 'Other',
+      accountId,
     });
   }
 
@@ -71,9 +89,14 @@
   });
 
   $: categoryOptions = categories.map(cat => ({ value: cat, label: cat }));
+  $: accountOptions = accounts.map(acc => ({ value: acc.id, label: acc.name }));
 
   function handleCategoryChange(event: CustomEvent) {
     category = event.detail.value;
+  }
+
+  function handleAccountChange(event: CustomEvent) {
+    accountId = event.detail.value;
   }
 </script>
 
@@ -156,6 +179,18 @@
       </div>
 
       <div>
+        <label for="account" class="block text-sm font-semibold text-gray-300 mb-2">
+          Akun *
+        </label>
+        <Dropdown
+          value={accountId}
+          options={accountOptions}
+          on:change={handleAccountChange}
+          placeholder="Pilih akun"
+        />
+      </div>
+
+      <div>
         <label for="category" class="block text-sm font-semibold text-gray-300 mb-2">
           Category
         </label>
@@ -176,7 +211,8 @@
         </button>
         <button
           type="submit"
-          class="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl font-semibold shadow-lg hover:shadow-purple-500/25 transition-all duration-200 hover:scale-105"
+          class="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl font-semibold shadow-lg hover:shadow-purple-500/25 transition-all duration-200 hover:scale-105 disabled:opacity-60"
+          disabled={accountId === null}
         >
           Save Changes
         </button>

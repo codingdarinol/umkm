@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { fly } from 'svelte/transition';
   import { fade, scale } from 'svelte/transition';
   import { backOut } from 'svelte/easing';
   import { invoke } from '@tauri-apps/api/core';
@@ -20,7 +21,20 @@
 
   const dispatch = createEventDispatcher();
 
+  interface AccountTransaction {
+    id: number;
+    amount: number;
+    description: string;
+    category: string;
+    date: string;
+    account_id: number;
+  }
+
   let showAddAccount = false;
+  let showDrawer = false;
+  let selectedAccount: typeof accounts[number] | null = null;
+  let accountTransactions: AccountTransaction[] = [];
+  let isLoadingTransactions = false;
   let name = '';
   let accountType: 'asset' | 'liability' | 'equity' | '' = '';
   let openingBalance = '';
@@ -70,6 +84,52 @@
       isSaving = false;
     }
   }
+
+
+  async function openAccount(account: typeof accounts[number]) {
+    if (!containerId) return;
+    selectedAccount = account;
+    showDrawer = true;
+    await loadAccountTransactions();
+  }
+
+  async function loadAccountTransactions() {
+    if (!containerId || !selectedAccount) return;
+    isLoadingTransactions = true;
+    try {
+      accountTransactions = await invoke<AccountTransaction[]>('get_transactions_by_account', {
+        containerId,
+        accountId: selectedAccount.id,
+        limit: 50,
+      });
+    } catch (error) {
+      console.error('Failed to load account transactions:', error);
+      accountTransactions = [];
+    } finally {
+      isLoadingTransactions = false;
+    }
+  }
+
+  function closeDrawer() {
+    showDrawer = false;
+    selectedAccount = null;
+    accountTransactions = [];
+  }
+
+  function formatDate(dateString: string): string {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  }
+
+  $: additions = accountTransactions.reduce((sum, t) => t.amount > 0 ? sum + t.amount : sum, 0);
+  $: reductions = accountTransactions.reduce((sum, t) => t.amount < 0 ? sum + Math.abs(t.amount) : sum, 0);
+  $: currentBalance = selectedAccount ? selectedAccount.balance : 0;
 </script>
 
 <div class="flex h-full w-full">
@@ -105,7 +165,7 @@
       {:else}
         <div class="divide-y divide-gray-800/50">
           {#each accounts as account (account.id)}
-            <div class="px-6 py-4 flex items-center justify-between">
+            <button type="button" on:click={() => openAccount(account)} class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-800/40 transition-colors">
               <div>
                 <p class="text-white font-semibold">{account.name}</p>
                 <p class="text-xs text-gray-500 uppercase tracking-wider">
@@ -118,13 +178,77 @@
                 </p>
                 <p class="text-xs text-gray-500">Saldo Saat Ini</p>
               </div>
-            </div>
+            </button>
           {/each}
         </div>
       {/if}
     </div>
   </div>
 </div>
+
+{#if showDrawer}
+  <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" on:click={closeDrawer}></div>
+  <div class="fixed right-0 top-0 h-full w-full sm:w-[420px] bg-gray-900 border-l border-gray-800 shadow-2xl z-50 flex flex-col" in:fly={{ x: 320, duration: 200 }}>
+    <div class="px-6 py-5 border-b border-gray-800 flex items-center justify-between">
+      <div>
+        <h3 class="text-lg font-bold text-white">{selectedAccount?.name}</h3>
+        <p class="text-xs text-gray-500 uppercase tracking-wider">
+          {selectedAccount?.account_type === 'asset' ? 'Aset' : selectedAccount?.account_type === 'liability' ? 'Liabilitas' : 'Ekuitas'}
+        </p>
+      </div>
+      <button class="p-2 hover:bg-gray-800 rounded-lg text-gray-300" on:click={closeDrawer}>
+        <X size={18} />
+      </button>
+    </div>
+
+    <div class="p-6 space-y-4 overflow-y-auto">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+          <p class="text-xs text-gray-500 mb-1">Saldo Awal</p>
+          <p class="text-base font-mono text-white" style="font-feature-settings: 'tnum';">{selectedAccount ? formatCurrency(selectedAccount.opening_balance) : '-'}</p>
+        </div>
+        <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+          <p class="text-xs text-gray-500 mb-1">Saldo Saat Ini</p>
+          <p class="text-base font-mono text-white" style="font-feature-settings: 'tnum';">{selectedAccount ? formatCurrency(currentBalance) : '-'}</p>
+        </div>
+        <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+          <p class="text-xs text-gray-500 mb-1">Penambahan</p>
+          <p class="text-base font-mono text-green-400" style="font-feature-settings: 'tnum';">{formatCurrency(additions)}</p>
+        </div>
+        <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+          <p class="text-xs text-gray-500 mb-1">Pengurangan</p>
+          <p class="text-base font-mono text-red-400" style="font-feature-settings: 'tnum';">{formatCurrency(-reductions)}</p>
+        </div>
+      </div>
+
+      <div class="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+          <h4 class="text-sm font-semibold text-gray-300">Transaksi</h4>
+          <span class="text-xs text-gray-500">{accountTransactions.length} item</span>
+        </div>
+        {#if isLoadingTransactions}
+          <div class="p-4 text-sm text-gray-400">Memuat...</div>
+        {:else if accountTransactions.length === 0}
+          <div class="p-4 text-sm text-gray-400">Belum ada transaksi.</div>
+        {:else}
+          <div class="divide-y divide-gray-800">
+            {#each accountTransactions as tx (tx.id)}
+              <div class="px-4 py-3 flex items-center justify-between">
+                <div class="min-w-0">
+                  <p class="text-sm text-white truncate">{tx.description || tx.category || 'Transaksi'}</p>
+                  <p class="text-xs text-gray-500">{formatDate(tx.date)} | {tx.category}</p>
+                </div>
+                <p class="text-sm font-mono {tx.amount >= 0 ? 'text-green-400' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
+                  {tx.amount >= 0 ? '+' : ''}{formatCurrency(tx.amount)}
+                </p>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if showAddAccount}
   <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" in:fade={{ duration: 200 }} out:fade={{ duration: 150 }}>
