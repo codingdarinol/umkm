@@ -289,8 +289,8 @@
 <main class="min-h-screen bg-gray-950 text-gray-100 flex">
   <aside class="w-56 lg:w-64 bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0 hidden sm:flex">
     <div class="p-6 border-b border-gray-800">
-      <h1 class="text-2xl font-black text-white tracking-tight">Spent</h1>
-      <p class="text-xs text-gray-500 mt-1">Finance Tracker</p>
+      <h1 class="text-2xl font-black text-white tracking-tight">Akuntansi</h1>
+      <p class="text-xs text-gray-500 mt-1">Pembukuan UMKM</p>
     </div>
 
     {#if selectedContainer}

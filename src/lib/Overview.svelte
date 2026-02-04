@@ -150,7 +150,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
       <div>
         <h2 class="text-2xl lg:text-3xl font-black text-white mb-1">Dashboard</h2>
-        <p class="text-xs lg:text-sm text-gray-500">Track your spending</p>
+        <p class="text-xs lg:text-sm text-gray-500">Pantau Keuangan Anda</p>
       </div>
       <div class="flex items-center gap-2">
         <Calendar size={18} class="text-gray-400 hidden sm:block" />
@@ -210,7 +210,7 @@
 
     <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-800">
-        <h3 class="text-lg font-bold text-white">Recent Transactions</h3>
+        <h3 class="text-lg font-bold text-white">Transaksi Terbaru</h3>
       </div>
 
       {#if transactions.length === 0}
@@ -290,7 +290,7 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-red-400"></div>
-              <span class="text-sm text-gray-400">Spent</span>
+              <span class="text-sm text-gray-400">Akuntansi</span>
             </div>
             <span class="text-lg font-mono text-white" style="font-feature-settings: 'tnum';">{formatCurrency(totalSpent)}</span>
           </div>
