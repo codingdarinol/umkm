@@ -6,9 +6,10 @@
   import { save } from '@tauri-apps/plugin-dialog';
   import { writeTextFile } from '@tauri-apps/plugin-fs';
   import { open } from '@tauri-apps/plugin-shell';
-  import { LayoutDashboard, TrendingUp, Plus, Settings as SettingsIcon, Github, Wallet } from 'lucide-svelte';
+  import { LayoutDashboard, TrendingUp, Plus, Settings as SettingsIcon, Github, Wallet, BookOpen } from 'lucide-svelte';
   import Overview from './lib/Overview.svelte';
   import Analytics from './lib/Analytics.svelte';
+  import Accounts from './lib/Accounts.svelte';
   import QuickEntry from './lib/QuickEntry.svelte';
   import EditTransaction from './lib/EditTransaction.svelte';
   import CommandPalette from './lib/CommandPalette.svelte';
@@ -26,6 +27,7 @@
     category: string;
     date: string;
     container_id: number;
+    account_id: number;
   }
 
   interface Container {
@@ -35,7 +37,20 @@
     is_default: boolean;
   }
 
-  let activeTab: 'overview' | 'analytics' = 'overview';
+  interface Account {
+    id: number;
+    name: string;
+    account_type: string;
+    opening_balance: number;
+    container_id: number;
+    created_at: string;
+  }
+
+  interface AccountBalance extends Account {
+    balance: number;
+  }
+
+  let activeTab: 'overview' | 'analytics' | 'accounts' = 'overview';
   let showQuickEntry = false;
   let showEditTransaction = false;
   let editingTransaction: Transaction | null = null;
@@ -52,6 +67,8 @@
   let selectedMonth: string = '';
   let containers: Container[] = [];
   let selectedContainer: Container | null = null;
+  let accounts: Account[] = [];
+  let accountBalances: AccountBalance[] = [];
   let toastMessage = '';
   let toastType: 'success' | 'error' | 'info' | 'warning' = 'info';
   let showToast = false;
@@ -69,6 +86,26 @@
       }
     } catch (error) {
       console.error('Failed to load containers:', error);
+    }
+  }
+
+  async function loadAccounts() {
+    if (!selectedContainer) return;
+    try {
+      accounts = await invoke<Account[]>('get_accounts', { containerId: selectedContainer.id });
+    } catch (error) {
+      console.error('Failed to load accounts:', error);
+      accounts = [];
+    }
+  }
+
+  async function loadAccountBalances() {
+    if (!selectedContainer) return;
+    try {
+      accountBalances = await invoke<AccountBalance[]>('get_account_balances', { containerId: selectedContainer.id });
+    } catch (error) {
+      console.error('Failed to load account balances:', error);
+      accountBalances = [];
     }
   }
 
@@ -119,21 +156,25 @@
 
   $: if (selectedContainer) {
     loadAvailableMonths();
+    loadAccounts();
+    loadAccountBalances();
     loadData();
   }
 
   async function handleAddTransaction(event: CustomEvent) {
     if (!selectedContainer) return;
     
-    const { amount, description, category } = event.detail;
+    const { amount, description, category, accountId } = event.detail;
     try {
       await invoke('add_transaction', {
         amount: Math.round(amount * 100),
         description: description || null,
         category: category || null,
+        accountId,
         containerId: selectedContainer.id,
       });
       await loadData();
+      await loadAccountBalances();
       showQuickEntry = false;
     } catch (error) {
       console.error('Failed to add transaction:', error);
@@ -144,6 +185,7 @@
     try {
       await invoke('delete_transaction', { id: event.detail.id });
       await loadData();
+      await loadAccountBalances();
     } catch (error) {
       console.error('Failed to delete transaction:', error);
     }
@@ -277,6 +319,8 @@
   onMount(async () => {
     await loadContainers();
     await loadAvailableMonths();
+    await loadAccounts();
+    await loadAccountBalances();
     await loadData();
     
     const handleKeydownEvent = (event: KeyboardEvent) => handleKeydown(event);
@@ -325,6 +369,16 @@
         <TrendingUp size={20} />
         <span class="font-medium">Analytics</span>
       </button>
+
+      <button
+        on:click={() => (activeTab = 'accounts')}
+        class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all {activeTab === 'accounts'
+          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+          : 'text-gray-400 hover:text-white hover:bg-gray-800'}"
+      >
+        <BookOpen size={20} />
+        <span class="font-medium">Akun</span>
+      </button>
     </nav>
 
     <div class="p-4 space-y-3 border-t border-gray-800">
@@ -370,6 +424,7 @@
         {transactions}
         {selectedMonth}
         {availableMonths}
+        {accounts}
         on:delete={handleDeleteTransaction}
         on:edit={handleEditTransaction}
         on:refresh={loadData}
@@ -377,11 +432,21 @@
       />
     {:else if activeTab === 'analytics'}
       <Analytics {categoryTotals} {transactions} {monthlyBalance} />
+    {:else if activeTab === 'accounts'}
+      <Accounts
+        accounts={accountBalances}
+        containerId={selectedContainer?.id}
+        on:refresh={() => {
+          loadAccounts();
+          loadAccountBalances();
+        }}
+      />
     {/if}
   </div>
 
   {#if showQuickEntry}
     <QuickEntry
+      {accounts}
       on:add={handleAddTransaction}
       on:close={() => (showQuickEntry = false)}
     />

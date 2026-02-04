@@ -2,7 +2,7 @@
 
 mod database;
 
-use database::{Database, NewTransaction, Transaction, Container};
+use database::{Account, AccountBalance, Container, Database, NewTransaction, Transaction};
 use std::sync::Arc;
 use tauri::Manager;
 
@@ -12,6 +12,7 @@ fn add_transaction(
     description: Option<String>,
     category: Option<String>,
     container_id: i64,
+    account_id: i64,
     db: tauri::State<Arc<Database>>,
 ) -> Result<Transaction, String> {
     let new_transaction = NewTransaction {
@@ -19,6 +20,7 @@ fn add_transaction(
         description,
         category,
         container_id,
+        account_id,
     };
     
     db.add_transaction(new_transaction)
@@ -62,6 +64,28 @@ fn get_category_totals(container_id: i64, db: tauri::State<Arc<Database>>) -> Re
 #[tauri::command]
 fn get_categories(db: tauri::State<Arc<Database>>) -> Result<Vec<String>, String> {
     db.get_categories().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_accounts(container_id: i64, db: tauri::State<Arc<Database>>) -> Result<Vec<Account>, String> {
+    db.get_accounts(container_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_account_balances(container_id: i64, db: tauri::State<Arc<Database>>) -> Result<Vec<AccountBalance>, String> {
+    db.get_account_balances(container_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn add_account(
+    container_id: i64,
+    name: String,
+    account_type: String,
+    opening_balance: i64,
+    db: tauri::State<Arc<Database>>,
+) -> Result<Account, String> {
+    db.add_account(container_id, name, account_type, opening_balance)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -184,6 +208,9 @@ fn main() {
             get_categories,
             add_category,
             delete_category,
+            get_accounts,
+            get_account_balances,
+            add_account,
             export_csv,
             get_available_months,
             get_balance_for_month,

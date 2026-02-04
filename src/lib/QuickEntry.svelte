@@ -6,6 +6,17 @@
   import { X, DollarSign, Plus, Trash2 } from 'lucide-svelte';
   import Dropdown from './Dropdown.svelte';
 
+  interface Account {
+    id: number;
+    name: string;
+    account_type: string;
+    opening_balance: number;
+    container_id: number;
+    created_at: string;
+  }
+
+  export let accounts: Account[] = [];
+
   const dispatch = createEventDispatcher();
 
   let amount = '';
@@ -15,6 +26,7 @@
   let categories: string[] = [];
   let showAddCategory = false;
   let newCategoryName = '';
+  let accountId: number | null = null;
 
   async function loadCategories() {
     try {
@@ -57,22 +69,28 @@
 
   function handleSubmit() {
     const parsedAmount = parseFloat(amount);
-    if (!parsedAmount) {
+    if (!parsedAmount || accountId === null) {
       return;
     }
 
-    const finalAmount = transactionType === 'expense' ? -Math.abs(parsedAmount) : Math.abs(parsedAmount);
+    const selectedAccount = accounts.find(acc => acc.id === accountId);
+    const isAsset = selectedAccount?.account_type === 'asset';
+    const base = Math.abs(parsedAmount);
+    const signedAmount = transactionType === 'expense' ? -base : base;
+    const finalAmount = isAsset ? signedAmount : -signedAmount;
 
     dispatch('add', {
       amount: finalAmount,
       description: description.trim() || null,
       category: category || null,
+      accountId,
     });
 
     amount = '';
     description = '';
     category = 'Other';
     transactionType = 'expense';
+    accountId = null;
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -93,9 +111,14 @@
   });
 
   $: categoryOptions = categories.map(cat => ({ value: cat, label: cat }));
+  $: accountOptions = accounts.map(acc => ({ value: acc.id, label: acc.name }));
 
   function handleCategoryChange(event: CustomEvent) {
     category = event.detail.value;
+  }
+
+  function handleAccountChange(event: CustomEvent) {
+    accountId = event.detail.value;
   }
 </script>
 
@@ -315,6 +338,21 @@
       </div>
 
       <div>
+        <label for="account" class="block text-sm font-semibold text-gray-300 mb-2">
+          Akun *
+        </label>
+        <Dropdown
+          value={accountId}
+          options={accountOptions}
+          on:change={handleAccountChange}
+          placeholder="Pilih akun"
+        />
+        {#if accounts.length === 0}
+          <p class="text-xs text-red-400 mt-1.5">Belum ada akun. Tambahkan di menu Akun.</p>
+        {/if}
+      </div>
+
+      <div>
         <label for="category" class="block text-sm font-semibold text-gray-300 mb-2">
           Category
         </label>
@@ -328,7 +366,8 @@
       <div class="flex gap-3 pt-2">
         <button
           type="submit"
-          class="flex-1 {transactionType === 'expense' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' : 'bg-green-500 hover:bg-green-600 shadow-green-500/20'} text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg"
+          class="flex-1 {transactionType === 'expense' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' : 'bg-green-500 hover:bg-green-600 shadow-green-500/20'} text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg disabled:opacity-60"
+          disabled={accountId === null}
         >
           Add {transactionType === 'expense' ? 'Expense' : 'Income'}
         </button>

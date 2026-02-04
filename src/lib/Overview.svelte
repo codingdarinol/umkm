@@ -33,11 +33,23 @@
     description: string;
     category: string;
     date: string;
+    account_id: number;
   }>;
+
+  export let accounts: Array<{
+    id: number;
+    name: string;
+    account_type: string;
+  }> = [];
 
   $: formatCurrency = (cents: number): string => {
     return formatCurrencyHelper(cents, $currencySettings);
   };
+
+  function getAccountName(accountId: number): string {
+    if (!accountId) return 'Tanpa Akun';
+    return accounts.find(acc => acc.id === accountId)?.name || 'Tanpa Akun';
+  }
 
   function formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -169,7 +181,7 @@
         <div class="absolute inset-0 bg-gradient-to-br {monthlyBalance >= 0 ? 'from-blue-500/5' : 'from-red-500/5'} to-transparent pointer-events-none"></div>
         <div class="relative">
           <p class="text-gray-500 text-xs font-medium mb-2 lg:mb-3 uppercase tracking-wider">{formatMonthLabel(selectedMonth)}</p>
-          <p class="text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight mb-1 {monthlyBalance >= 0 ? 'text-white' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
+          <p class="text-2xl lg:text-3xl xl:text-4xl font-black tracking-tight mb-1 {monthlyBalance >= 0 ? 'text-white' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
             {formatCurrency(monthlyBalance)}
           </p>
           <div class="flex items-center gap-2 mt-3">
@@ -190,7 +202,7 @@
         <div class="absolute inset-0 bg-gradient-to-br {allTimeBalance >= 0 ? 'from-purple-500/5' : 'from-red-500/5'} to-transparent pointer-events-none"></div>
         <div class="relative">
           <p class="text-gray-500 text-xs font-medium mb-2 lg:mb-3 uppercase tracking-wider">All Time</p>
-          <p class="text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight mb-1 {allTimeBalance >= 0 ? 'text-white' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
+          <p class="text-2xl lg:text-3xl xl:text-4xl font-black tracking-tight mb-1 {allTimeBalance >= 0 ? 'text-white' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
             {formatCurrency(allTimeBalance)}
           </p>
           <div class="flex items-center gap-2 mt-3">
@@ -240,6 +252,8 @@
                       <div class="flex items-center gap-2 mt-0.5">
                         <span class="text-xs text-gray-500">{formatTime(transaction.date)}</span>
                         <span class="text-xs text-gray-700">•</span>
+                        <span class="text-xs text-gray-500">{getAccountName(transaction.account_id)}</span>
+                        <span class="text-xs text-gray-700">|</span>
                         <span class="text-xs text-gray-500">{transaction.category}</span>
                       </div>
                     </div>
@@ -290,14 +304,14 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-red-400"></div>
-              <span class="text-sm text-gray-400">Akuntansi</span>
+              <span class="text-sm text-gray-400">Pengeluaran</span>
             </div>
             <span class="text-lg font-mono text-white" style="font-feature-settings: 'tnum';">{formatCurrency(totalSpent)}</span>
           </div>
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-green-400"></div>
-              <span class="text-sm text-gray-400">Income</span>
+              <span class="text-sm text-gray-400">Pemasukan</span>
             </div>
             <span class="text-lg font-mono text-white" style="font-feature-settings: 'tnum';">{formatCurrency(totalIncome)}</span>
           </div>
@@ -306,12 +320,12 @@
 
       <div class="grid grid-cols-2 gap-3">
         <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-          <p class="text-gray-500 text-xs mb-2">Daily Avg</p>
+          <p class="text-gray-500 text-xs mb-2">Rata-rata Harian</p>
           <p class="text-xl font-mono text-white" style="font-feature-settings: 'tnum';">{formatCurrency(dailyAverage)}</p>
         </div>
 
         <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-          <p class="text-gray-500 text-xs mb-2">Count</p>
+          <p class="text-gray-500 text-xs mb-2">Jml Transaksi</p>
           <p class="text-xl font-mono text-white" style="font-feature-settings: 'tnum';">{transactionCount}</p>
         </div>
       </div>
