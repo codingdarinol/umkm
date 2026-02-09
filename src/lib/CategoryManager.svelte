@@ -1,24 +1,44 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
-  import { fade, scale, fly } from 'svelte/transition';
+  import { fade, scale } from 'svelte/transition';
   import { backOut, cubicOut } from 'svelte/easing';
   import { invoke } from '@tauri-apps/api/core';
   import { X, Plus, Trash2, Tag } from 'lucide-svelte';
+  import Dropdown from './Dropdown.svelte';
 
   const dispatch = createEventDispatcher();
 
-  let categories: string[] = [];
+  interface Category {
+    name: string;
+    category_type: 'income' | 'expense';
+    is_default: boolean;
+  }
+
+  let categories: Category[] = [];
   let newCategoryName = '';
+  let newCategoryType: 'income' | 'expense' = 'expense';
   let isAdding = false;
 
-  const defaultCategories = ['Food & Dining', 'Transportation', 'Shopping', 'Entertainment', 'Bills & Utilities', 'Healthcare', 'Income', 'Other'];
+  const typeOptions = [
+    { value: 'expense', label: 'Expense' },
+    { value: 'income', label: 'Income' },
+  ];
 
   async function loadCategories() {
     try {
-      categories = await invoke<string[]>('get_categories');
+      categories = await invoke<Category[]>('get_categories');
     } catch (error) {
       console.error('Failed to load categories:', error);
-      categories = defaultCategories;
+      categories = [
+        { name: 'Food & Dining', category_type: 'expense', is_default: true },
+        { name: 'Transportation', category_type: 'expense', is_default: true },
+        { name: 'Shopping', category_type: 'expense', is_default: true },
+        { name: 'Entertainment', category_type: 'expense', is_default: true },
+        { name: 'Bills & Utilities', category_type: 'expense', is_default: true },
+        { name: 'Healthcare', category_type: 'expense', is_default: true },
+        { name: 'Income', category_type: 'income', is_default: true },
+        { name: 'Other', category_type: 'expense', is_default: true },
+      ];
     }
   }
 
@@ -26,9 +46,10 @@
     if (!newCategoryName.trim()) return;
     
     try {
-      await invoke('add_category', { name: newCategoryName.trim() });
+      await invoke('add_category_with_type', { name: newCategoryName.trim(), categoryType: newCategoryType });
       await loadCategories();
       newCategoryName = '';
+      newCategoryType = 'expense';
       isAdding = false;
     } catch (error) {
       console.error('Failed to add category:', error);
@@ -48,8 +69,8 @@
     }
   }
 
-  function isDefaultCategory(cat: string): boolean {
-    return defaultCategories.includes(cat);
+  function isDefaultCategory(cat: Category): boolean {
+    return cat.is_default;
   }
 
   onMount(() => {
@@ -89,6 +110,13 @@
               on:keydown={(e) => e.key === 'Enter' && handleAddCategory()}
               autofocus
             />
+            <div class="min-w-[120px]">
+              <Dropdown
+                value={newCategoryType}
+                options={typeOptions}
+                on:change={(e) => (newCategoryType = e.detail.value)}
+              />
+            </div>
             <button
               type="button"
               on:click={handleAddCategory}
@@ -118,11 +146,14 @@
 
       <div class="space-y-2">
         <h3 class="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">All Categories ({categories.length})</h3>
-        {#each categories as cat, i}
+        {#each categories as cat}
           <div class="flex items-center justify-between p-4 bg-gray-800 rounded-xl hover:bg-gray-750 hover:scale-[1.01] transition-all duration-200 border border-gray-700">
             <div class="flex items-center gap-3">
               <div class="w-3 h-3 rounded-full {isDefaultCategory(cat) ? 'bg-green-500' : 'bg-blue-500'}"></div>
-              <span class="text-white font-medium">{cat}</span>
+              <span class="text-white font-medium">{cat.name}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full {cat.category_type === 'income' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">
+                {cat.category_type === 'income' ? 'Income' : 'Expense'}
+              </span>
               {#if isDefaultCategory(cat)}
                 <span class="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">Default</span>
               {/if}
@@ -130,7 +161,7 @@
             {#if !isDefaultCategory(cat)}
               <button
                 type="button"
-                on:click={() => handleDeleteCategory(cat)}
+                on:click={() => handleDeleteCategory(cat.name)}
                 class="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
                 title="Delete category"
               >

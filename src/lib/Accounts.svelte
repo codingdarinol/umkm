@@ -28,6 +28,8 @@
     category: string;
     date: string;
     account_id: number;
+    transfer_id: number;
+    transfer_account_id: number;
   }
 
   let showAddAccount = false;
@@ -125,6 +127,15 @@
       hour: '2-digit',
       minute: '2-digit',
     }).format(date);
+  }
+
+  function isTransfer(transaction: { transfer_id: number }): boolean {
+    return transaction.transfer_id !== 0;
+  }
+
+  function getTransferLabel(transaction: { amount: number; transfer_account_id: number }): string {
+    const counterparty = accounts.find(acc => acc.id === transaction.transfer_account_id)?.name || 'Tanpa Akun';
+    return transaction.amount >= 0 ? `Transfer dari ${counterparty}` : `Transfer ke ${counterparty}`;
   }
 
   $: additions = accountTransactions.reduce((sum, t) => t.amount > 0 ? sum + t.amount : sum, 0);
@@ -235,8 +246,15 @@
             {#each accountTransactions as tx (tx.id)}
               <div class="px-4 py-3 flex items-center justify-between">
                 <div class="min-w-0">
-                  <p class="text-sm text-white truncate">{tx.description || tx.category || 'Transaksi'}</p>
-                  <p class="text-xs text-gray-500">{formatDate(tx.date)} | {tx.category}</p>
+                  <p class="text-sm text-white truncate">
+                    {isTransfer(tx) ? (tx.description || 'Transfer') : (tx.description || tx.category || 'Transaksi')}
+                  </p>
+                  <p class="text-xs text-gray-500">
+                    {formatDate(tx.date)} | {isTransfer(tx) ? 'Transfer' : tx.category}
+                    {#if isTransfer(tx)}
+                      <span class="text-blue-400"> • {getTransferLabel(tx)}</span>
+                    {/if}
+                  </p>
                 </div>
                 <p class="text-sm font-mono {tx.amount >= 0 ? 'text-green-400' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
                   {tx.amount >= 0 ? '+' : ''}{formatCurrency(tx.amount)}

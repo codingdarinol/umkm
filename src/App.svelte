@@ -6,10 +6,11 @@
   import { save } from '@tauri-apps/plugin-dialog';
   import { writeTextFile } from '@tauri-apps/plugin-fs';
   import { open } from '@tauri-apps/plugin-shell';
-  import { LayoutDashboard, TrendingUp, Plus, Settings as SettingsIcon, Github, Wallet, BookOpen } from 'lucide-svelte';
+  import { LayoutDashboard, TrendingUp, Plus, Settings as SettingsIcon, Github, Wallet, BookOpen, FileText } from 'lucide-svelte';
   import Overview from './lib/Overview.svelte';
   import Analytics from './lib/Analytics.svelte';
   import Accounts from './lib/Accounts.svelte';
+  import Reports from './lib/Reports.svelte';
   import QuickEntry from './lib/QuickEntry.svelte';
   import EditTransaction from './lib/EditTransaction.svelte';
   import CommandPalette from './lib/CommandPalette.svelte';
@@ -28,6 +29,8 @@
     date: string;
     container_id: number;
     account_id: number;
+    transfer_id: number;
+    transfer_account_id: number;
   }
 
   interface Container {
@@ -50,7 +53,7 @@
     balance: number;
   }
 
-  let activeTab: 'overview' | 'analytics' | 'accounts' = 'overview';
+  let activeTab: 'overview' | 'analytics' | 'accounts' | 'reports' = 'overview';
   let showQuickEntry = false;
   let showEditTransaction = false;
   let editingTransaction: Transaction | null = null;
@@ -181,6 +184,26 @@
     }
   }
 
+  async function handleAddTransfer(event: CustomEvent) {
+    if (!selectedContainer) return;
+
+    const { amount, description, fromAccountId, toAccountId } = event.detail;
+    try {
+      await invoke('add_transfer', {
+        amount: Math.round(amount * 100),
+        description: description || null,
+        fromAccountId,
+        toAccountId,
+        containerId: selectedContainer.id,
+      });
+      await loadData();
+      await loadAccountBalances();
+      showQuickEntry = false;
+    } catch (error) {
+      console.error('Failed to add transfer:', error);
+    }
+  }
+
   async function handleDeleteTransaction(event: CustomEvent) {
     try {
       await invoke('delete_transaction', { id: event.detail.id });
@@ -192,6 +215,9 @@
   }
 
   function handleEditTransaction(event: CustomEvent) {
+    if (event.detail.transaction?.transfer_id) {
+      return;
+    }
     editingTransaction = event.detail.transaction;
     showEditTransaction = true;
   }
@@ -275,6 +301,9 @@
         break;
       case 'analytics':
         activeTab = 'analytics';
+        break;
+      case 'reports':
+        activeTab = 'reports';
         break;
       case 'transactions':
         activeTab = 'overview';
@@ -381,6 +410,16 @@
         <BookOpen size={20} />
         <span class="font-medium">Akun</span>
       </button>
+
+      <button
+        on:click={() => (activeTab = 'reports')}
+        class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all {activeTab === 'reports'
+          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+          : 'text-gray-400 hover:text-white hover:bg-gray-800'}"
+      >
+        <FileText size={20} />
+        <span class="font-medium">Laporan</span>
+      </button>
     </nav>
 
     <div class="p-4 space-y-3 border-t border-gray-800">
@@ -443,6 +482,13 @@
           loadAccountBalances();
         }}
       />
+    {:else if activeTab === 'reports'}
+      <Reports
+        containerId={selectedContainer?.id}
+        {selectedMonth}
+        {availableMonths}
+        on:monthChange={(e) => selectedMonth = e.detail.month}
+      />
     {/if}
   </div>
 
@@ -450,6 +496,7 @@
     <QuickEntry
       {accounts}
       on:add={handleAddTransaction}
+      on:transfer={handleAddTransfer}
       on:close={() => (showQuickEntry = false)}
     />
   {/if}

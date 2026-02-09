@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { fade, fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import { Search, Plus, Download, TrendingUp, Receipt, Tag, Wallet, Upload, Settings } from 'lucide-svelte';
+  import { Search, Plus, Download, TrendingUp, Receipt, Tag, Wallet, Upload, Settings, FileText } from 'lucide-svelte';
 
   const dispatch = createEventDispatcher();
 
@@ -17,6 +17,7 @@
     { id: 'settings', label: 'Settings', icon: Settings, action: 'settings' },
     { id: 'export', label: 'Export to CSV', icon: Download, action: 'export' },
     { id: 'analytics', label: 'View Analytics', icon: TrendingUp, action: 'analytics' },
+    { id: 'reports', label: 'View Reports', icon: FileText, action: 'reports' },
     { id: 'transactions', label: 'View Transactions', icon: Receipt, action: 'transactions' },
   ];
 

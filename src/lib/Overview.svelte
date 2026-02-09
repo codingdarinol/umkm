@@ -34,6 +34,8 @@
     category: string;
     date: string;
     account_id: number;
+    transfer_id: number;
+    transfer_account_id: number;
   }>;
 
   export let accounts: Array<{
@@ -49,6 +51,19 @@
   function getAccountName(accountId: number): string {
     if (!accountId) return 'Tanpa Akun';
     return accounts.find(acc => acc.id === accountId)?.name || 'Tanpa Akun';
+  }
+
+  function isTransfer(transaction: { transfer_id: number }): boolean {
+    return transaction.transfer_id !== 0;
+  }
+
+  function getTransferLabel(transaction: { amount: number; transfer_account_id: number }): string {
+    const counterparty = getAccountName(transaction.transfer_account_id);
+    return transaction.amount >= 0 ? `Transfer dari ${counterparty}` : `Transfer ke ${counterparty}`;
+  }
+
+  function getDisplayCategory(transaction: { category: string; transfer_id: number }): string {
+    return isTransfer(transaction) ? 'Transfer' : transaction.category;
   }
 
   function formatDate(dateString: string): string {
@@ -123,13 +138,20 @@
       'Bills & Utilities': 'bg-yellow-500',
       'Healthcare': 'bg-red-500',
       'Income': 'bg-green-500',
+      'Transfer': 'bg-blue-400',
       'Other': 'bg-gray-500'
     };
     return colors[category] || colors['Other'];
   }
 
-  $: totalSpent = transactions.reduce((sum, t) => t.amount < 0 ? sum + Math.abs(t.amount) : sum, 0);
-  $: totalIncome = transactions.reduce((sum, t) => t.amount > 0 ? sum + t.amount : sum, 0);
+  $: totalSpent = transactions.reduce((sum, t) => {
+    if (isTransfer(t)) return sum;
+    return t.amount < 0 ? sum + Math.abs(t.amount) : sum;
+  }, 0);
+  $: totalIncome = transactions.reduce((sum, t) => {
+    if (isTransfer(t)) return sum;
+    return t.amount > 0 ? sum + t.amount : sum;
+  }, 0);
   $: transactionCount = transactions.length;
   $: dailyAverage = transactionCount > 0 ? totalSpent / 30 : 0;
   $: groupedTransactions = groupTransactions(transactions);
@@ -244,17 +266,24 @@
                 {#each groupTxs as transaction, i}
                   <div class="px-6 py-4 hover:bg-gray-800/30 transition-all duration-200 group flex items-center gap-4">
                     <div class="flex-shrink-0">
-                      <div class="w-2 h-2 rounded-full {getCategoryColor(transaction.category)}"></div>
+                      <div class="w-2 h-2 rounded-full {getCategoryColor(getDisplayCategory(transaction))}"></div>
                     </div>
 
                     <div class="flex-1 min-w-0">
-                      <p class="text-white font-semibold truncate">{transaction.description || transaction.category || 'General Expense'}</p>
+                      <p class="text-white font-semibold truncate">
+                        {isTransfer(transaction)
+                          ? (transaction.description || 'Transfer')
+                          : (transaction.description || transaction.category || 'General Expense')}
+                      </p>
                       <div class="flex items-center gap-2 mt-0.5">
                         <span class="text-xs text-gray-500">{formatTime(transaction.date)}</span>
                         <span class="text-xs text-gray-700">•</span>
                         <span class="text-xs text-gray-500">{getAccountName(transaction.account_id)}</span>
                         <span class="text-xs text-gray-700">|</span>
-                        <span class="text-xs text-gray-500">{transaction.category}</span>
+                        <span class="text-xs text-gray-500">{getDisplayCategory(transaction)}</span>
+                        {#if isTransfer(transaction)}
+                          <span class="text-xs text-blue-400">({getTransferLabel(transaction)})</span>
+                        {/if}
                       </div>
                     </div>
 
@@ -262,15 +291,17 @@
                       <p class="text-lg font-mono {transaction.amount >= 0 ? 'text-green-400' : 'text-red-400'}" style="font-feature-settings: 'tnum';">
                         {transaction.amount >= 0 ? '+' : ''}{formatCurrency(transaction.amount)}
                       </p>
-                      <button
-                        on:click={() => dispatch('edit', { transaction })}
-                        class="opacity-0 group-hover:opacity-100 p-2 hover:bg-blue-500/10 hover:scale-110 rounded-lg text-blue-400 transition-all duration-200"
-                        title="Edit"
-                      >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
+                      {#if !isTransfer(transaction)}
+                        <button
+                          on:click={() => dispatch('edit', { transaction })}
+                          class="opacity-0 group-hover:opacity-100 p-2 hover:bg-blue-500/10 hover:scale-110 rounded-lg text-blue-400 transition-all duration-200"
+                          title="Edit"
+                        >
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      {/if}
                       <button
                         on:click={() => dispatch('delete', { id: transaction.id })}
                         class="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 hover:scale-110 rounded-lg text-red-400 transition-all duration-200"

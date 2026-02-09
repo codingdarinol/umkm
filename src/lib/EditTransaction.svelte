@@ -17,6 +17,12 @@
     created_at: string;
   }
 
+  interface Category {
+    name: string;
+    category_type: 'income' | 'expense';
+    is_default: boolean;
+  }
+
   export let accounts: Account[] = [];
 
   export let transaction: {
@@ -32,15 +38,24 @@
   let description = '';
   let category = '';
   let transactionType: 'expense' | 'income' = 'expense';
-  let categories: string[] = [];
+  let categories: Category[] = [];
   let accountId: number | null = null;
 
   async function loadCategories() {
     try {
-      categories = await invoke<string[]>('get_categories');
+      categories = await invoke<Category[]>('get_categories');
     } catch (error) {
       console.error('Failed to load categories:', error);
-      categories = ['Food & Dining', 'Transportation', 'Shopping', 'Entertainment', 'Bills & Utilities', 'Healthcare', 'Income', 'Other'];
+      categories = [
+        { name: 'Food & Dining', category_type: 'expense', is_default: true },
+        { name: 'Transportation', category_type: 'expense', is_default: true },
+        { name: 'Shopping', category_type: 'expense', is_default: true },
+        { name: 'Entertainment', category_type: 'expense', is_default: true },
+        { name: 'Bills & Utilities', category_type: 'expense', is_default: true },
+        { name: 'Healthcare', category_type: 'expense', is_default: true },
+        { name: 'Income', category_type: 'income', is_default: true },
+        { name: 'Other', category_type: 'expense', is_default: true },
+      ];
     }
   }
 
@@ -88,8 +103,13 @@
     initializeForm();
   });
 
-  $: categoryOptions = categories.map(cat => ({ value: cat, label: cat }));
+  $: filteredCategories = categories.filter(cat => cat.category_type === transactionType);
+  $: categoryOptions = filteredCategories.map(cat => ({ value: cat.name, label: cat.name }));
   $: accountOptions = accounts.map(acc => ({ value: acc.id, label: acc.name }));
+
+  $: if (filteredCategories.length > 0 && !filteredCategories.some(cat => cat.name === category)) {
+    category = filteredCategories[0].name;
+  }
 
   function handleCategoryChange(event: CustomEvent) {
     category = event.detail.value;

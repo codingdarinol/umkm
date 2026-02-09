@@ -2,7 +2,10 @@
 
 mod database;
 
-use database::{Account, AccountBalance, Container, Database, NewTransaction, Transaction};
+use database::{
+    Account, AccountBalance, BalanceSheetReport, Category, Container, Database, NewTransaction,
+    ProfitLossReport, Transaction,
+};
 use std::sync::Arc;
 use tauri::Manager;
 
@@ -24,6 +27,19 @@ fn add_transaction(
     };
     
     db.add_transaction(new_transaction)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn add_transfer(
+    amount: i64,
+    description: Option<String>,
+    container_id: i64,
+    from_account_id: i64,
+    to_account_id: i64,
+    db: tauri::State<Arc<Database>>,
+) -> Result<i64, String> {
+    db.add_transfer(container_id, from_account_id, to_account_id, amount, description)
         .map_err(|e| e.to_string())
 }
 
@@ -73,7 +89,7 @@ fn get_category_totals(container_id: i64, db: tauri::State<Arc<Database>>) -> Re
 }
 
 #[tauri::command]
-fn get_categories(db: tauri::State<Arc<Database>>) -> Result<Vec<String>, String> {
+fn get_categories(db: tauri::State<Arc<Database>>) -> Result<Vec<Category>, String> {
     db.get_categories().map_err(|e| e.to_string())
 }
 
@@ -101,7 +117,17 @@ fn add_account(
 
 #[tauri::command]
 fn add_category(name: String, db: tauri::State<Arc<Database>>) -> Result<(), String> {
-    db.add_category(name).map_err(|e| e.to_string())
+    db.add_category(name, "expense".to_string())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn add_category_with_type(
+    name: String,
+    category_type: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.add_category(name, category_type).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -132,6 +158,26 @@ fn get_transactions_for_month(
 #[tauri::command]
 fn get_category_totals_for_month(container_id: i64, month: String, db: tauri::State<Arc<Database>>) -> Result<Vec<(String, i64)>, String> {
     db.get_category_totals_for_month(container_id, month).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_profit_and_loss_for_month(
+    container_id: i64,
+    month: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<ProfitLossReport, String> {
+    db.get_profit_and_loss_for_month(container_id, month)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_balance_sheet_for_month(
+    container_id: i64,
+    month: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<BalanceSheetReport, String> {
+    db.get_balance_sheet_for_month(container_id, month)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -212,6 +258,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             add_transaction,
+            add_transfer,
             get_transactions,
             get_transactions_by_account,
             get_monthly_balance,
@@ -220,6 +267,7 @@ fn main() {
             get_category_totals,
             get_categories,
             add_category,
+            add_category_with_type,
             delete_category,
             get_accounts,
             get_account_balances,
@@ -229,6 +277,8 @@ fn main() {
             get_balance_for_month,
             get_transactions_for_month,
             get_category_totals_for_month,
+            get_profit_and_loss_for_month,
+            get_balance_sheet_for_month,
             update_transaction,
             get_containers,
             add_container,
