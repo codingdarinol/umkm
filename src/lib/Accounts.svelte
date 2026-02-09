@@ -4,7 +4,7 @@
   import { fade, scale } from 'svelte/transition';
   import { backOut } from 'svelte/easing';
   import { invoke } from '@tauri-apps/api/core';
-  import { Plus, X, BookOpen } from 'lucide-svelte';
+  import { Plus, X, BookOpen, Pencil, Trash2 } from 'lucide-svelte';
   import Dropdown from './Dropdown.svelte';
   import { currencySettings, formatCurrency as formatCurrencyHelper } from './stores';
 
@@ -33,6 +33,7 @@
   }
 
   let showAddAccount = false;
+  let showEditAccount = false;
   let showDrawer = false;
   let selectedAccount: typeof accounts[number] | null = null;
   let accountTransactions: AccountTransaction[] = [];
@@ -41,6 +42,10 @@
   let accountType: 'asset' | 'contra_asset' | 'liability' | 'equity' | '' = '';
   let openingBalance = '';
   let isSaving = false;
+  let editName = '';
+  let editOpeningBalance = '';
+  let isUpdating = false;
+  let isDeleting = false;
 
   const typeOptions = [
     { value: 'asset', label: 'Aset' },
@@ -72,6 +77,11 @@
     openingBalance = '';
   }
 
+  function resetEditForm() {
+    editName = '';
+    editOpeningBalance = '';
+  }
+
   async function handleAddAccount() {
     if (!containerId || !name.trim() || !accountType) {
       return;
@@ -98,6 +108,60 @@
       alert('Gagal menambahkan akun. Nama akun mungkin sudah ada.');
     } finally {
       isSaving = false;
+    }
+  }
+
+  function startEditAccount() {
+    if (!selectedAccount) return;
+    editName = selectedAccount.name;
+    editOpeningBalance = (selectedAccount.opening_balance / 100).toFixed(2);
+    showEditAccount = true;
+  }
+
+  async function handleUpdateAccount() {
+    if (!selectedAccount || !editName.trim()) {
+      return;
+    }
+
+    const parsed = parseFloat(editOpeningBalance);
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+
+    isUpdating = true;
+    try {
+      await invoke('update_account', {
+        id: selectedAccount.id,
+        name: editName.trim(),
+        openingBalance: Math.round(parsed * 100),
+      });
+      showEditAccount = false;
+      resetEditForm();
+      dispatch('refresh');
+    } catch (error) {
+      console.error('Failed to update account:', error);
+      alert('Gagal mengubah akun. Nama akun mungkin sudah ada.');
+    } finally {
+      isUpdating = false;
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!selectedAccount) return;
+    if (!confirm(`Hapus akun \"${selectedAccount.name}\"?\n\nTransaksi yang sudah ada akan tetap tersimpan tetapi akunnya menjadi \"Tanpa Akun\".`)) {
+      return;
+    }
+
+    isDeleting = true;
+    try {
+      await invoke('delete_account', { id: selectedAccount.id });
+      closeDrawer();
+      dispatch('refresh');
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      alert('Gagal menghapus akun.');
+    } finally {
+      isDeleting = false;
     }
   }
 
@@ -155,6 +219,15 @@
   $: additions = accountTransactions.reduce((sum, t) => t.amount > 0 ? sum + t.amount : sum, 0);
   $: reductions = accountTransactions.reduce((sum, t) => t.amount < 0 ? sum + Math.abs(t.amount) : sum, 0);
   $: currentBalance = selectedAccount ? selectedAccount.balance : 0;
+
+  $: if (selectedAccount) {
+    const updatedAccount = accounts.find(acc => acc.id === selectedAccount?.id);
+    if (updatedAccount) {
+      selectedAccount = updatedAccount;
+    } else if (showDrawer) {
+      closeDrawer();
+    }
+  }
 </script>
 
 <div class="flex h-full w-full">
@@ -221,9 +294,26 @@
           {selectedAccount ? getAccountTypeLabel(selectedAccount.account_type) : ''}
         </p>
       </div>
-      <button class="p-2 hover:bg-gray-800 rounded-lg text-gray-300" on:click={closeDrawer}>
-        <X size={18} />
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          class="p-2 hover:bg-gray-800 rounded-lg text-gray-300"
+          on:click={startEditAccount}
+          title="Edit akun"
+        >
+          <Pencil size={16} />
+        </button>
+        <button
+          class="p-2 hover:bg-red-500/10 rounded-lg text-red-400 disabled:opacity-60"
+          on:click={handleDeleteAccount}
+          title="Hapus akun"
+          disabled={isDeleting}
+        >
+          <Trash2 size={16} />
+        </button>
+        <button class="p-2 hover:bg-gray-800 rounded-lg text-gray-300" on:click={closeDrawer}>
+          <X size={18} />
+        </button>
+      </div>
     </div>
 
     <div class="p-6 space-y-4 overflow-y-auto">
@@ -348,6 +438,85 @@
           <button
             type="button"
             on:click={() => (showAddAccount = false)}
+            class="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-semibold transition-all border border-gray-700"
+          >
+            Batal
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
+
+{#if showEditAccount && selectedAccount}
+  <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" in:fade={{ duration: 200 }} out:fade={{ duration: 150 }}>
+    <div class="bg-gray-900 rounded-2xl w-full max-w-md border border-gray-800 shadow-2xl overflow-hidden" in:scale={{ duration: 300, start: 0.9, easing: backOut }}>
+      <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-5 flex items-center justify-between rounded-t-2xl">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+            <Pencil class="text-white" size={20} />
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white">Edit Akun</h3>
+            <p class="text-purple-100 text-xs">Perbarui data akun</p>
+          </div>
+        </div>
+        <button
+          on:click={() => {
+            showEditAccount = false;
+            resetEditForm();
+          }}
+          class="p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      <form on:submit|preventDefault={handleUpdateAccount} class="p-6 space-y-5">
+        <div>
+          <label class="block text-sm font-semibold text-gray-300 mb-2">Nama Akun *</label>
+          <input
+            type="text"
+            bind:value={editName}
+            class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-all"
+            required
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-300 mb-2">Tipe</label>
+          <div class="px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-xl text-gray-300">
+            {getAccountTypeLabel(selectedAccount.account_type)}
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-300 mb-2">Saldo Awal *</label>
+          <input
+            type="number"
+            step="0.01"
+            bind:value={editOpeningBalance}
+            placeholder="0.00"
+            class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-all"
+            required
+          />
+          <p class="text-xs text-gray-500 mt-1.5">Saldo awal boleh negatif.</p>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button
+            type="submit"
+            class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-purple-600/20 disabled:opacity-60"
+            disabled={isUpdating}
+          >
+            {isUpdating ? 'Menyimpan...' : 'Simpan'}
+          </button>
+          <button
+            type="button"
+            on:click={() => {
+              showEditAccount = false;
+              resetEditForm();
+            }}
             class="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-semibold transition-all border border-gray-700"
           >
             Batal

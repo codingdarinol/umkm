@@ -652,6 +652,47 @@ impl Database {
         })
     }
 
+    pub fn update_account(&self, id: i64, name: String, opening_balance: i64) -> Result<Account> {
+        let conn = self.conn.lock().unwrap();
+        let name = name.trim().to_string();
+
+        conn.execute(
+            "UPDATE accounts SET name = ?1, opening_balance = ?2 WHERE id = ?3",
+            params![name, opening_balance, id],
+        )?;
+
+        let account = conn.query_row(
+            "SELECT id, name, account_type, opening_balance, container_id, created_at
+             FROM accounts
+             WHERE id = ?1",
+            [id],
+            |row| {
+                Ok(Account {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    account_type: row.get(2)?,
+                    opening_balance: row.get(3)?,
+                    container_id: row.get(4)?,
+                    created_at: row.get(5)?,
+                })
+            },
+        )?;
+
+        Ok(account)
+    }
+
+    pub fn delete_account(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+
+        conn.execute(
+            "UPDATE transactions SET account_id = NULL WHERE account_id = ?1",
+            [id],
+        )?;
+
+        conn.execute("DELETE FROM accounts WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
     pub fn add_category(&self, name: String, category_type: String) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(

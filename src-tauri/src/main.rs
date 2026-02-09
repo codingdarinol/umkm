@@ -116,6 +116,22 @@ fn add_account(
 }
 
 #[tauri::command]
+fn update_account(
+    id: i64,
+    name: String,
+    opening_balance: i64,
+    db: tauri::State<Arc<Database>>,
+) -> Result<Account, String> {
+    db.update_account(id, name, opening_balance)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_account(id: i64, db: tauri::State<Arc<Database>>) -> Result<(), String> {
+    db.delete_account(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn add_category(name: String, db: tauri::State<Arc<Database>>) -> Result<(), String> {
     db.add_category(name, "expense".to_string())
         .map_err(|e| e.to_string())
@@ -272,6 +288,8 @@ fn main() {
             get_accounts,
             get_account_balances,
             add_account,
+            update_account,
+            delete_account,
             export_csv,
             get_available_months,
             get_balance_for_month,
