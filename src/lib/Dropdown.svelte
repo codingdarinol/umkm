@@ -16,6 +16,18 @@
   let menuStyle = '';
   let listenersAttached = false;
 
+  function portal(node: HTMLElement) {
+    if (typeof document === 'undefined') return {};
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        if (node.parentNode) {
+          node.parentNode.removeChild(node);
+        }
+      }
+    };
+  }
+
   $: selectedOption = options.find(opt => opt.value === value);
 
   async function openDropdown() {
@@ -112,26 +124,25 @@
   </button>
 
   {#if isOpen}
-    <svelte:body>
-      <div
-        bind:this={menuRef}
-        class="fixed z-[60] bg-gray-800 border-2 border-gray-700 rounded-lg shadow-2xl max-h-72 overflow-y-auto overscroll-contain"
-        style={menuStyle}
-      >
-        {#each options as option}
-          <button
-            type="button"
-            on:click={() => selectOption(option)}
-            class="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-gray-700 transition-colors flex items-center gap-2 {option.value === value ? 'bg-gray-700/50' : ''}"
-          >
-            <span class="truncate">{option.label}</span>
-            {#if option.value === value}
-              <div class="ml-auto w-1.5 h-1.5 rounded-full bg-purple-500 flex-shrink-0"></div>
-            {/if}
-          </button>
-        {/each}
-      </div>
-    </svelte:body>
+    <div
+      bind:this={menuRef}
+      use:portal
+      class="fixed z-[60] bg-gray-800 border-2 border-gray-700 rounded-lg shadow-2xl max-h-72 overflow-y-auto overscroll-contain"
+      style={menuStyle}
+    >
+      {#each options as option}
+        <button
+          type="button"
+          on:click={() => selectOption(option)}
+          class="w-full px-3 py-2.5 text-left text-sm text-white hover:bg-gray-700 transition-colors flex items-center gap-2 {option.value === value ? 'bg-gray-700/50' : ''}"
+        >
+          <span class="truncate">{option.label}</span>
+          {#if option.value === value}
+            <div class="ml-auto w-1.5 h-1.5 rounded-full bg-purple-500 flex-shrink-0"></div>
+          {/if}
+        </button>
+      {/each}
+    </div>
   {/if}
 </div>
 
