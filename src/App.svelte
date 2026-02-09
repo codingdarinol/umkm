@@ -245,21 +245,58 @@
     if (!selectedContainer) return;
     
     try {
-      const csv = await invoke<string>('export_csv', { containerId: selectedContainer.id });
-      const path = await save({
-        defaultPath: `spent-${selectedContainer.name}-export.csv`,
+      const month = selectedMonth || getCurrentMonth();
+      const reports = await invoke<{ profit_loss: string; balance_sheet: string; transactions: string }>('export_reports_csv', {
+        containerId: selectedContainer.id,
+        month,
+      });
+      const profitLossPath = await save({
+        defaultPath: `spent-${selectedContainer.name}-${month}-laba-rugi.csv`,
         filters: [{
           name: 'CSV',
           extensions: ['csv']
         }]
       });
-      
-      if (path) {
-        await writeTextFile(path, csv);
-        toastMessage = `CSV exported successfully to:\n${path}`;
-        toastType = 'success';
-        showToast = true;
+
+      if (!profitLossPath) {
+        return;
       }
+
+      const balanceSheetPath = await save({
+        defaultPath: `spent-${selectedContainer.name}-${month}-posisi-keuangan.csv`,
+        filters: [{
+          name: 'CSV',
+          extensions: ['csv']
+        }]
+      });
+
+      if (!balanceSheetPath) {
+        return;
+      }
+
+      const transactionsPath = await save({
+        defaultPath: `spent-${selectedContainer.name}-${month}-transaksi.csv`,
+        filters: [{
+          name: 'CSV',
+          extensions: ['csv']
+        }]
+      });
+
+      if (!transactionsPath) {
+        return;
+      }
+
+      await writeTextFile(profitLossPath, reports.profit_loss);
+      await writeTextFile(balanceSheetPath, reports.balance_sheet);
+      await writeTextFile(transactionsPath, reports.transactions);
+
+      toastMessage =
+        `CSV exported successfully:\n` +
+        `${profitLossPath}\n` +
+        `${balanceSheetPath}\n` +
+        `${transactionsPath}`;
+      toastType = 'success';
+      showToast = true;
     } catch (error) {
       console.error('Export failed:', error);
       toastMessage = 'Failed to export CSV. Please try again.';
@@ -451,7 +488,7 @@
           on:click={handleExport}
           class="text-xs text-gray-500 hover:text-gray-300 transition-colors"
         >
-          Export CSV
+          Export 3 CSV
         </button>
       </div>
     </div>

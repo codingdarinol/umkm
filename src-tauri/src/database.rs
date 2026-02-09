@@ -1,5 +1,6 @@
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use csv::ReaderBuilder;
@@ -88,6 +89,13 @@ pub struct BalanceSheetReport {
     pub total_assets: i64,
     pub total_liabilities: i64,
     pub total_equity: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReportsCsvExport {
+    pub profit_loss: String,
+    pub balance_sheet: String,
+    pub transactions: String,
 }
 
 pub struct Database {
@@ -529,6 +537,223 @@ impl Database {
         }
 
         Ok(csv)
+    }
+
+    pub fn export_profit_loss_csv(&self, container_id: i64, month: String) -> Result<String> {
+        let report = self.get_profit_and_loss_for_month(container_id, month)?;
+        let mut csv = String::from("Bagian,Kategori,Nilai\n");
+
+        for line in report.income {
+            csv.push_str(&format!(
+                "Pendapatan,{},{}\n",
+                Self::csv_escape(&line.category),
+                Self::format_units_no_decimals(line.total)
+            ));
+        }
+        csv.push_str(&format!(
+            "Pendapatan,Total Pendapatan,{}\n",
+            Self::format_units_no_decimals(report.total_income)
+        ));
+
+        for line in report.expense {
+            csv.push_str(&format!(
+                "Beban,{},{}\n",
+                Self::csv_escape(&line.category),
+                Self::format_units_no_decimals(line.total)
+            ));
+        }
+        csv.push_str(&format!(
+            "Beban,Total Beban,{}\n",
+            Self::format_units_no_decimals(report.total_expense)
+        ));
+
+        csv.push_str(&format!(
+            "Laba Bersih,,{}\n",
+            Self::format_units_no_decimals(report.net_income)
+        ));
+
+        Ok(csv)
+    }
+
+    pub fn export_balance_sheet_csv(&self, container_id: i64, month: String) -> Result<String> {
+        let report = self.get_balance_sheet_for_month(container_id, month)?;
+        let mut csv = String::from("Bagian,Akun,Saldo\n");
+
+        for account in report.assets {
+            csv.push_str(&format!(
+                "Aset,{},{}\n",
+                Self::csv_escape(&account.name),
+                Self::format_units_no_decimals(account.balance)
+            ));
+        }
+        csv.push_str(&format!(
+            "Aset,Total Aset,{}\n",
+            Self::format_units_no_decimals(report.total_assets)
+        ));
+
+        for account in report.liabilities {
+            csv.push_str(&format!(
+                "Liabilitas,{},{}\n",
+                Self::csv_escape(&account.name),
+                Self::format_units_no_decimals(account.balance)
+            ));
+        }
+        csv.push_str(&format!(
+            "Liabilitas,Total Liabilitas,{}\n",
+            Self::format_units_no_decimals(report.total_liabilities)
+        ));
+
+        for account in report.equity {
+            csv.push_str(&format!(
+                "Ekuitas,{},{}\n",
+                Self::csv_escape(&account.name),
+                Self::format_units_no_decimals(account.balance)
+            ));
+        }
+        csv.push_str(&format!(
+            "Ekuitas,Total Ekuitas,{}\n",
+            Self::format_units_no_decimals(report.total_equity)
+        ));
+
+        let total_liabilities_equity = report.total_liabilities + report.total_equity;
+        csv.push_str(&format!(
+            "Total Liabilitas & Ekuitas,,{}\n",
+            Self::format_units_no_decimals(total_liabilities_equity)
+        ));
+
+        Ok(csv)
+    }
+
+    pub fn export_transactions_detail_csv(&self, container_id: i64, month: String) -> Result<String> {
+        let conn = self.conn.lock().unwrap();
+        let (start_date, end_date) = Self::month_range(&month)?;
+
+        let container_name: String = conn.query_row(
+            "SELECT name FROM containers WHERE id = ?1",
+            [container_id],
+            |row| row.get(0),
+        )?;
+
+        let mut balances: HashMap<i64, i64> = HashMap::new();
+        let mut accounts_stmt = conn.prepare(
+            "SELECT id, opening_balance FROM accounts WHERE container_id = ?1",
+        )?;
+        let account_rows = accounts_stmt.query_map([container_id], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+        })?;
+        for row in account_rows {
+            let (id, opening_balance) = row?;
+            balances.insert(id, opening_balance);
+        }
+
+        let mut opening_stmt = conn.prepare(
+            "SELECT COALESCE(account_id, 0) as account_id, COALESCE(SUM(amount), 0) as total
+             FROM transactions
+             WHERE container_id = ?1 AND date < ?2
+             GROUP BY account_id",
+        )?;
+        let opening_rows = opening_stmt.query_map(params![container_id, &start_date], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+        })?;
+        for row in opening_rows {
+            let (account_id, total) = row?;
+            let entry = balances.entry(account_id).or_insert(0);
+            *entry += total;
+        }
+
+        let mut csv = String::from("Tanggal,Deskripsi,Akun,Kategori,Tipe,Debit,Kredit,Saldo,Container\n");
+        let mut stmt = conn.prepare(
+            "SELECT t.amount, t.description, t.category, t.date,
+                    COALESCE(t.account_id, 0) as account_id,
+                    COALESCE(t.transfer_id, 0) as transfer_id,
+                    COALESCE(t.transfer_account_id, 0) as transfer_account_id,
+                    COALESCE(a.name, '') as account_name,
+                    COALESCE(a.account_type, '') as account_type,
+                    COALESCE(c.category_type, 'expense') as category_type,
+                    COALESCE(ta.name, '') as transfer_account_name
+             FROM transactions t
+             LEFT JOIN accounts a ON a.id = t.account_id
+             LEFT JOIN categories c ON c.name = t.category
+             LEFT JOIN accounts ta ON ta.id = t.transfer_account_id
+             WHERE t.container_id = ?1 AND t.date >= ?2 AND t.date <= ?3
+             ORDER BY t.date ASC, t.id ASC",
+        )?;
+        let rows = stmt.query_map(params![container_id, &start_date, &end_date], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, String>(7)?,
+                row.get::<_, String>(8)?,
+                row.get::<_, String>(9)?,
+                row.get::<_, String>(10)?,
+            ))
+        })?;
+
+        for row in rows {
+            let (amount, description, category, date, account_id, transfer_id, _transfer_account_id, account_name, account_type, category_type, transfer_account_name) = row?;
+
+            let tx_type = if transfer_id != 0 || category == "Transfer" {
+                "Transfer"
+            } else if category_type == "income" {
+                "Income"
+            } else {
+                "Expense"
+            };
+
+            let display_category = if tx_type == "Transfer" {
+                if transfer_account_name.is_empty() {
+                    "Transfer".to_string()
+                } else {
+                    transfer_account_name
+                }
+            } else {
+                category
+            };
+
+            let balance_entry = balances.entry(account_id).or_insert(0);
+            *balance_entry += amount;
+
+            let is_debit_normal = account_type == "asset" || account_type == "contra_asset" || account_type.is_empty();
+            let (debit, credit) = if is_debit_normal {
+                if amount >= 0 {
+                    (amount, 0)
+                } else {
+                    (0, -amount)
+                }
+            } else if amount >= 0 {
+                (0, amount)
+            } else {
+                (-amount, 0)
+            };
+
+            csv.push_str(&format!(
+                "{},{},{},{},{},{},{},{},{}\n",
+                Self::csv_escape(&Self::date_only(&date)),
+                Self::csv_escape(&description),
+                Self::csv_escape(&account_name),
+                Self::csv_escape(&display_category),
+                tx_type,
+                Self::format_units_no_decimals(debit),
+                Self::format_units_no_decimals(credit),
+                Self::format_units_no_decimals(*balance_entry),
+                Self::csv_escape(&container_name)
+            ));
+        }
+
+        Ok(csv)
+    }
+
+    pub fn export_reports_csv(&self, container_id: i64, month: String) -> Result<ReportsCsvExport> {
+        Ok(ReportsCsvExport {
+            profit_loss: self.export_profit_loss_csv(container_id, month.clone())?,
+            balance_sheet: self.export_balance_sheet_csv(container_id, month.clone())?,
+            transactions: self.export_transactions_detail_csv(container_id, month)?,
+        })
     }
 
     pub fn delete_transaction(&self, id: i64) -> Result<()> {
@@ -1041,6 +1266,24 @@ impl Database {
             )?;
         }
         Ok(())
+    }
+
+    fn format_units_no_decimals(cents: i64) -> String {
+        let units = (cents as f64 / 100.0).round() as i64;
+        units.to_string()
+    }
+
+    fn csv_escape(value: &str) -> String {
+        if value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r') {
+            let escaped = value.replace('"', "\"\"");
+            format!("\"{}\"", escaped)
+        } else {
+            value.to_string()
+        }
+    }
+
+    fn date_only(value: &str) -> String {
+        value.split(' ').next().unwrap_or(value).to_string()
     }
 
     fn month_range(month: &str) -> Result<(String, String)> {

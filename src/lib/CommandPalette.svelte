@@ -15,7 +15,7 @@
     { id: 'categories', label: 'Manage Categories', icon: Tag, action: 'categories' },
     { id: 'containers', label: 'Manage Containers', icon: Wallet, action: 'containers' },
     { id: 'settings', label: 'Settings', icon: Settings, action: 'settings' },
-    { id: 'export', label: 'Export to CSV', icon: Download, action: 'export' },
+    { id: 'export', label: 'Export 3 CSV', icon: Download, action: 'export' },
     { id: 'analytics', label: 'View Analytics', icon: TrendingUp, action: 'analytics' },
     { id: 'reports', label: 'View Reports', icon: FileText, action: 'reports' },
     { id: 'transactions', label: 'View Transactions', icon: Receipt, action: 'transactions' },

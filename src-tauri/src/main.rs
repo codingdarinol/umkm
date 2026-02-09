@@ -4,7 +4,7 @@ mod database;
 
 use database::{
     Account, AccountBalance, BalanceSheetReport, Category, Container, Database, NewTransaction,
-    ProfitLossReport, Transaction,
+    ProfitLossReport, ReportsCsvExport, Transaction,
 };
 use std::sync::Arc;
 use tauri::Manager;
@@ -76,6 +76,16 @@ fn get_all_time_balance(container_id: i64, db: tauri::State<Arc<Database>>) -> R
 #[tauri::command]
 fn export_csv(container_id: i64, db: tauri::State<Arc<Database>>) -> Result<String, String> {
     db.export_transactions_csv(container_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn export_reports_csv(
+    container_id: i64,
+    month: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<ReportsCsvExport, String> {
+    db.export_reports_csv(container_id, month)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -291,6 +301,7 @@ fn main() {
             update_account,
             delete_account,
             export_csv,
+            export_reports_csv,
             get_available_months,
             get_balance_for_month,
             get_transactions_for_month,
