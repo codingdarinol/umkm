@@ -838,7 +838,7 @@ impl Database {
         for account in accounts_iter {
             let account = account?;
             match account.account_type.as_str() {
-                "asset" => assets.push(account),
+                "asset" | "contra_asset" => assets.push(account),
                 "liability" => liabilities.push(account),
                 _ => equity.push(account),
             }

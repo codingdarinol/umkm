@@ -117,7 +117,7 @@
     }
 
     const selectedAccount = accounts.find(acc => acc.id === accountId);
-    const isAsset = selectedAccount?.account_type === 'asset';
+    const isAsset = selectedAccount?.account_type === 'asset' || selectedAccount?.account_type === 'contra_asset';
     const base = Math.abs(parsedAmount);
     const signedAmount = transactionType === 'expense' ? -base : base;
     const finalAmount = isAsset ? signedAmount : -signedAmount;

@@ -76,7 +76,7 @@
 
     const amountInCents = Math.round(parsedAmount * 100);
     const selectedAccount = accounts.find(acc => acc.id === accountId);
-    const isAsset = selectedAccount?.account_type === 'asset';
+    const isAsset = selectedAccount?.account_type === 'asset' || selectedAccount?.account_type === 'contra_asset';
     const signedAmount = transactionType === 'expense' ? -Math.abs(amountInCents) : Math.abs(amountInCents);
     const finalAmount = isAsset ? signedAmount : -signedAmount;
 

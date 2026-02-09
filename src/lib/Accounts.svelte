@@ -38,15 +38,29 @@
   let accountTransactions: AccountTransaction[] = [];
   let isLoadingTransactions = false;
   let name = '';
-  let accountType: 'asset' | 'liability' | 'equity' | '' = '';
+  let accountType: 'asset' | 'contra_asset' | 'liability' | 'equity' | '' = '';
   let openingBalance = '';
   let isSaving = false;
 
   const typeOptions = [
     { value: 'asset', label: 'Aset' },
+    { value: 'contra_asset', label: 'Contra Aset' },
     { value: 'liability', label: 'Liabilitas' },
     { value: 'equity', label: 'Ekuitas' },
   ];
+
+  function getAccountTypeLabel(type: string): string {
+    switch (type) {
+      case 'asset':
+        return 'Aset';
+      case 'contra_asset':
+        return 'Contra Aset';
+      case 'liability':
+        return 'Liabilitas';
+      default:
+        return 'Ekuitas';
+    }
+  }
 
   $: formatCurrency = (cents: number): string => {
     return formatCurrencyHelper(cents, $currencySettings);
@@ -180,7 +194,7 @@
               <div>
                 <p class="text-white font-semibold">{account.name}</p>
                 <p class="text-xs text-gray-500 uppercase tracking-wider">
-                  {account.account_type === 'asset' ? 'Aset' : account.account_type === 'liability' ? 'Liabilitas' : 'Ekuitas'}
+                  {getAccountTypeLabel(account.account_type)}
                 </p>
               </div>
               <div class="text-right">
@@ -204,7 +218,7 @@
       <div>
         <h3 class="text-lg font-bold text-white">{selectedAccount?.name}</h3>
         <p class="text-xs text-gray-500 uppercase tracking-wider">
-          {selectedAccount?.account_type === 'asset' ? 'Aset' : selectedAccount?.account_type === 'liability' ? 'Liabilitas' : 'Ekuitas'}
+          {selectedAccount ? getAccountTypeLabel(selectedAccount.account_type) : ''}
         </p>
       </div>
       <button class="p-2 hover:bg-gray-800 rounded-lg text-gray-300" on:click={closeDrawer}>
