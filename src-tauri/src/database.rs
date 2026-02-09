@@ -95,6 +95,15 @@ pub struct Database {
 }
 
 impl Database {
+    const DEFAULT_EQUITY_ACCOUNTS: [&'static str; 6] = [
+        "Modal Saham",
+        "Tambahan Modal Disetor",
+        "Laba Ditahan",
+        "Laba Tahun Berjalan",
+        "Pendapatan Komprehensif Lainnya",
+        "Ekuitas Lainnya",
+    ];
+
     pub fn new(db_path: PathBuf) -> Result<Self> {
         let conn = Connection::open(db_path)?;
         
@@ -250,6 +259,15 @@ impl Database {
             "UPDATE categories SET category_type = 'income' WHERE name = 'Income'",
             [],
         )?;
+
+        let container_ids: Vec<i64> = {
+            let mut stmt = conn.prepare("SELECT id FROM containers")?;
+            let rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;
+            rows.collect::<Result<Vec<i64>>>()?
+        };
+        for container_id in container_ids {
+            Self::ensure_default_equity_accounts(&conn, container_id)?;
+        }
 
         Ok(Database {
             conn: Mutex::new(conn),
@@ -848,7 +866,7 @@ impl Database {
 
     pub fn get_balance_sheet_for_month(&self, container_id: i64, month: String) -> Result<BalanceSheetReport> {
         let conn = self.conn.lock().unwrap();
-        let (_start_date, end_date) = Self::month_range(&month)?;
+        let (start_date, end_date) = Self::month_range(&month)?;
 
         let mut stmt = conn.prepare(
             "SELECT a.id, a.name, a.account_type, a.opening_balance, a.container_id, a.created_at,
@@ -884,6 +902,41 @@ impl Database {
                 _ => equity.push(account),
             }
         }
+
+        let total_income: i64 = conn.query_row(
+            "SELECT COALESCE(SUM(ABS(t.amount)), 0)
+             FROM transactions t
+             LEFT JOIN categories c ON c.name = t.category
+             WHERE t.container_id = ?1 AND t.transfer_id IS NULL
+               AND t.date >= ?2 AND t.date <= ?3
+               AND COALESCE(c.category_type, 'expense') = 'income'",
+            params![container_id, &start_date, &end_date],
+            |row| row.get(0),
+        )?;
+
+        let total_expense: i64 = conn.query_row(
+            "SELECT COALESCE(SUM(ABS(t.amount)), 0)
+             FROM transactions t
+             LEFT JOIN categories c ON c.name = t.category
+             WHERE t.container_id = ?1 AND t.transfer_id IS NULL
+               AND t.date >= ?2 AND t.date <= ?3
+               AND COALESCE(c.category_type, 'expense') = 'expense'",
+            params![container_id, &start_date, &end_date],
+            |row| row.get(0),
+        )?;
+
+        let net_income = total_income - total_expense;
+
+        equity.retain(|account| account.name != "Laba Tahun Berjalan");
+        equity.push(AccountBalance {
+            id: 0,
+            name: "Laba Tahun Berjalan".to_string(),
+            account_type: "equity".to_string(),
+            opening_balance: 0,
+            balance: net_income,
+            container_id,
+            created_at: end_date.clone(),
+        });
 
         let total_assets: i64 = assets.iter().map(|a| a.balance).sum();
         let total_liabilities: i64 = liabilities.iter().map(|a| a.balance).sum();
@@ -926,6 +979,8 @@ impl Database {
         )?;
 
         let id = conn.last_insert_rowid();
+
+        Self::ensure_default_equity_accounts(&conn, id)?;
         
         Ok(Container {
             id,
@@ -974,6 +1029,18 @@ impl Database {
         )?;
 
         Ok(container)
+    }
+
+    fn ensure_default_equity_accounts(conn: &Connection, container_id: i64) -> Result<()> {
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        for name in Self::DEFAULT_EQUITY_ACCOUNTS {
+            conn.execute(
+                "INSERT OR IGNORE INTO accounts (name, account_type, opening_balance, container_id, created_at)
+                 VALUES (?1, 'equity', 0, ?2, ?3)",
+                params![name, container_id, &now],
+            )?;
+        }
+        Ok(())
     }
 
     fn month_range(month: &str) -> Result<(String, String)> {

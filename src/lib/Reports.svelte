@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { currencySettings, formatCurrency as formatCurrencyHelper } from './stores';
+  import { currencySettings } from './stores';
   import Dropdown from './Dropdown.svelte';
   import { FileText, TrendingUp, Scale } from 'lucide-svelte';
 
@@ -51,8 +51,19 @@
   let isLoading = false;
   let errorMessage = '';
 
-  $: formatCurrency = (cents: number): string => {
-    return formatCurrencyHelper(cents, $currencySettings);
+  $: formatCurrencyNoDecimals = (cents: number): string => {
+    const settings = $currencySettings;
+    const sign = cents < 0 ? '-' : '';
+    const amount = Math.abs(cents) / 100;
+    const formatted = new Intl.NumberFormat(settings.locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+
+    if (settings.position === 'before') {
+      return `${sign}${settings.symbol}${formatted}`;
+    }
+    return `${sign}${formatted} ${settings.symbol}`;
   };
 
   function formatMonthLabel(month: string): string {
@@ -145,16 +156,16 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
                 <p class="text-xs text-gray-500 mb-1">Total Pendapatan</p>
-                <p class="text-lg font-mono text-green-400">{formatCurrency(profitLoss.total_income)}</p>
+                <p class="text-lg font-mono text-green-400">{formatCurrencyNoDecimals(profitLoss.total_income)}</p>
               </div>
               <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
                 <p class="text-xs text-gray-500 mb-1">Total Beban</p>
-                <p class="text-lg font-mono text-red-400">{formatCurrency(profitLoss.total_expense)}</p>
+                <p class="text-lg font-mono text-red-400">{formatCurrencyNoDecimals(profitLoss.total_expense)}</p>
               </div>
               <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
                 <p class="text-xs text-gray-500 mb-1">Laba Bersih</p>
                 <p class="text-lg font-mono {profitLoss.net_income >= 0 ? 'text-green-300' : 'text-red-300'}">
-                  {formatCurrency(profitLoss.net_income)}
+                  {formatCurrencyNoDecimals(profitLoss.net_income)}
                 </p>
               </div>
             </div>
@@ -169,7 +180,7 @@
                     {#each profitLoss.income as line}
                       <div class="flex items-center justify-between bg-gray-800/40 rounded-lg px-3 py-2">
                         <span class="text-sm text-gray-200">{line.category}</span>
-                        <span class="text-sm font-mono text-green-400">{formatCurrency(line.total)}</span>
+                        <span class="text-sm font-mono text-green-400">{formatCurrencyNoDecimals(line.total)}</span>
                       </div>
                     {/each}
                   {/if}
@@ -184,7 +195,7 @@
                     {#each profitLoss.expense as line}
                       <div class="flex items-center justify-between bg-gray-800/40 rounded-lg px-3 py-2">
                         <span class="text-sm text-gray-200">{line.category}</span>
-                        <span class="text-sm font-mono text-red-400">{formatCurrency(line.total)}</span>
+                        <span class="text-sm font-mono text-red-400">{formatCurrencyNoDecimals(line.total)}</span>
                       </div>
                     {/each}
                   {/if}
@@ -206,15 +217,15 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
                 <p class="text-xs text-gray-500 mb-1">Total Aset</p>
-                <p class="text-lg font-mono text-blue-300">{formatCurrency(balanceSheet.total_assets)}</p>
+                <p class="text-lg font-mono text-blue-300">{formatCurrencyNoDecimals(balanceSheet.total_assets)}</p>
               </div>
               <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
                 <p class="text-xs text-gray-500 mb-1">Total Liabilitas</p>
-                <p class="text-lg font-mono text-orange-300">{formatCurrency(balanceSheet.total_liabilities)}</p>
+                <p class="text-lg font-mono text-orange-300">{formatCurrencyNoDecimals(balanceSheet.total_liabilities)}</p>
               </div>
               <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
                 <p class="text-xs text-gray-500 mb-1">Total Ekuitas</p>
-                <p class="text-lg font-mono text-purple-300">{formatCurrency(balanceSheet.total_equity)}</p>
+                <p class="text-lg font-mono text-purple-300">{formatCurrencyNoDecimals(balanceSheet.total_equity)}</p>
               </div>
             </div>
 
@@ -228,7 +239,7 @@
                     {#each balanceSheet.assets as account}
                       <div class="flex items-center justify-between bg-gray-800/40 rounded-lg px-3 py-2">
                         <span class="text-sm text-gray-200">{account.name}</span>
-                        <span class="text-sm font-mono text-blue-300">{formatCurrency(account.balance)}</span>
+                        <span class="text-sm font-mono text-blue-300">{formatCurrencyNoDecimals(account.balance)}</span>
                       </div>
                     {/each}
                   {/if}
@@ -243,7 +254,7 @@
                     {#each balanceSheet.liabilities as account}
                       <div class="flex items-center justify-between bg-gray-800/40 rounded-lg px-3 py-2">
                         <span class="text-sm text-gray-200">{account.name}</span>
-                        <span class="text-sm font-mono text-orange-300">{formatCurrency(account.balance)}</span>
+                        <span class="text-sm font-mono text-orange-300">{formatCurrencyNoDecimals(account.balance)}</span>
                       </div>
                     {/each}
                   {/if}
@@ -258,7 +269,7 @@
                     {#each balanceSheet.equity as account}
                       <div class="flex items-center justify-between bg-gray-800/40 rounded-lg px-3 py-2">
                         <span class="text-sm text-gray-200">{account.name}</span>
-                        <span class="text-sm font-mono text-purple-300">{formatCurrency(account.balance)}</span>
+                        <span class="text-sm font-mono text-purple-300">{formatCurrencyNoDecimals(account.balance)}</span>
                       </div>
                     {/each}
                   {/if}
