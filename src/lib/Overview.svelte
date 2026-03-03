@@ -131,17 +131,17 @@
 
   function getCategoryColor(category: string): string {
     const colors: Record<string, string> = {
-      'Food & Dining': 'bg-orange-500',
-      'Shopping': 'bg-purple-500',
-      'Transportation': 'bg-blue-500',
-      'Entertainment': 'bg-pink-500',
-      'Bills & Utilities': 'bg-yellow-500',
-      'Healthcare': 'bg-red-500',
-      'Income': 'bg-green-500',
+      'Biaya Gaji': 'bg-orange-500',
+      'Beban Penyusutan dan Amortisasi': 'bg-purple-500',
+      'Beban Transportasi': 'bg-blue-500',
+      'Beban Sewa': 'bg-pink-500',
+      'Beban Umum dan Administrasi': 'bg-yellow-500',
+      'Beban Pemasaran atau Promosi': 'bg-red-500',
+      'Penjualan': 'bg-green-500',
       'Transfer': 'bg-blue-400',
-      'Other': 'bg-gray-500'
+      'Beban Usaha Lainnya': 'bg-gray-500'
     };
-    return colors[category] || colors['Other'];
+    return colors[category] || colors['Beban Usaha Lainnya'];
   }
 
   $: totalSpent = transactions.reduce((sum, t) => {

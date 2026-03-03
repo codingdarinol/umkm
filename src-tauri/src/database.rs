@@ -111,6 +111,27 @@ impl Database {
         "Pendapatan Komprehensif Lainnya",
         "Ekuitas Lainnya",
     ];
+    const DEFAULT_FALLBACK_CATEGORY: &'static str = "Beban Usaha Lainnya";
+    const DEFAULT_CATEGORIES: [(&'static str, &'static str); 8] = [
+        ("Biaya Gaji", "expense"),
+        ("Beban Transportasi", "expense"),
+        ("Beban Penyusutan dan Amortisasi", "expense"),
+        ("Beban Sewa", "expense"),
+        ("Beban Umum dan Administrasi", "expense"),
+        ("Beban Pemasaran atau Promosi", "expense"),
+        ("Penjualan", "income"),
+        ("Beban Usaha Lainnya", "expense"),
+    ];
+    const LEGACY_CATEGORY_RENAMES: [(&'static str, &'static str, &'static str); 8] = [
+        ("Food & Dining", "Biaya Gaji", "expense"),
+        ("Transportation", "Beban Transportasi", "expense"),
+        ("Shopping", "Beban Penyusutan dan Amortisasi", "expense"),
+        ("Entertainment", "Beban Sewa", "expense"),
+        ("Bills & Utilities", "Beban Umum dan Administrasi", "expense"),
+        ("Healthcare", "Beban Pemasaran atau Promosi", "expense"),
+        ("Income", "Penjualan", "income"),
+        ("Other", "Beban Usaha Lainnya", "expense"),
+    ];
 
     pub fn new(db_path: PathBuf) -> Result<Self> {
         let conn = Connection::open(db_path)?;
@@ -239,34 +260,7 @@ impl Database {
             )?;
         }
 
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM categories", [], |row| row.get(0))?;
-        if count == 0 {
-            let defaults = vec![
-                ("Food & Dining", "expense"),
-                ("Transportation", "expense"),
-                ("Shopping", "expense"),
-                ("Entertainment", "expense"),
-                ("Bills & Utilities", "expense"),
-                ("Healthcare", "expense"),
-                ("Income", "income"),
-                ("Other", "expense"),
-            ];
-            for (category, category_type) in defaults {
-                conn.execute(
-                    "INSERT INTO categories (name, category_type, is_default) VALUES (?1, ?2, 1)",
-                    [category, category_type],
-                )?;
-            }
-        }
-
-        conn.execute(
-            "UPDATE categories SET category_type = 'expense' WHERE category_type IS NULL",
-            [],
-        )?;
-        conn.execute(
-            "UPDATE categories SET category_type = 'income' WHERE name = 'Income'",
-            [],
-        )?;
+        Self::ensure_default_categories(&conn)?;
 
         let container_ids: Vec<i64> = {
             let mut stmt = conn.prepare("SELECT id FROM containers")?;
@@ -287,7 +281,9 @@ impl Database {
         let date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         
         let description = transaction.description.unwrap_or_else(|| "Untitled".to_string());
-        let category = transaction.category.unwrap_or_else(|| "Other".to_string());
+        let category = transaction
+            .category
+            .unwrap_or_else(|| Self::DEFAULT_FALLBACK_CATEGORY.to_string());
         
         conn.execute(
             "INSERT INTO transactions (amount, description, category, date, container_id, account_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -424,6 +420,40 @@ impl Database {
 
         let mut stmt = conn.prepare(&query)?;
         let transactions = stmt.query_map(params![container_id, account_id], |row| {
+            Ok(Transaction {
+                id: row.get(0)?,
+                amount: row.get(1)?,
+                description: row.get(2)?,
+                category: row.get(3)?,
+                date: row.get(4)?,
+                container_id: row.get(5)?,
+                account_id: row.get(6)?,
+                transfer_id: row.get(7)?,
+                transfer_account_id: row.get(8)?,
+            })
+        })?;
+
+        transactions.collect()
+    }
+
+    pub fn get_transactions_by_category(
+        &self,
+        container_id: i64,
+        category: String,
+        limit: Option<i64>,
+    ) -> Result<Vec<Transaction>> {
+        let conn = self.conn.lock().unwrap();
+        let base = "SELECT id, amount, description, category, date, container_id, COALESCE(account_id, 0) as account_id, COALESCE(transfer_id, 0) as transfer_id, COALESCE(transfer_account_id, 0) as transfer_account_id
+                   FROM transactions
+                   WHERE container_id = ?1 AND category = ?2
+                   ORDER BY date DESC";
+        let query = match limit {
+            Some(l) => format!("{} LIMIT {}", base, l),
+            None => base.to_string(),
+        };
+
+        let mut stmt = conn.prepare(&query)?;
+        let transactions = stmt.query_map(params![container_id, category], |row| {
             Ok(Transaction {
                 id: row.get(0)?,
                 amount: row.get(1)?,
@@ -954,6 +984,43 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_category(
+        &self,
+        old_name: String,
+        new_name: String,
+        category_type: String,
+    ) -> Result<()> {
+        let mut conn = self.conn.lock().unwrap();
+        let old_name = old_name.trim().to_string();
+        let new_name = new_name.trim().to_string();
+        let category_type = category_type.trim().to_string();
+
+        if new_name.is_empty() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Category name cannot be empty".to_string(),
+            ));
+        }
+
+        let tx = conn.transaction()?;
+        let updated_rows = tx.execute(
+            "UPDATE categories
+             SET name = ?1, category_type = ?2
+             WHERE name = ?3",
+            params![&new_name, &category_type, &old_name],
+        )?;
+
+        if updated_rows == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        tx.execute(
+            "UPDATE transactions SET category = ?1 WHERE category = ?2",
+            params![&new_name, &old_name],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn get_available_months(&self, container_id: i64) -> Result<Vec<String>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
@@ -1256,6 +1323,82 @@ impl Database {
         Ok(container)
     }
 
+    fn ensure_default_categories(conn: &Connection) -> Result<()> {
+        conn.execute(
+            "UPDATE categories SET category_type = 'expense' WHERE category_type IS NULL OR TRIM(category_type) = ''",
+            [],
+        )?;
+
+        for (old_name, new_name, category_type) in Self::LEGACY_CATEGORY_RENAMES {
+            let old_exists: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM categories WHERE name = ?1",
+                [old_name],
+                |row| row.get(0),
+            )?;
+
+            if old_exists == 0 {
+                continue;
+            }
+
+            let new_exists: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM categories WHERE name = ?1",
+                [new_name],
+                |row| row.get(0),
+            )?;
+
+            if new_exists == 0 {
+                conn.execute(
+                    "UPDATE categories
+                     SET name = ?1, category_type = ?2, is_default = 1
+                     WHERE name = ?3",
+                    params![new_name, category_type, old_name],
+                )?;
+            } else {
+                conn.execute(
+                    "UPDATE categories SET category_type = ?1, is_default = 1 WHERE name = ?2",
+                    params![category_type, new_name],
+                )?;
+                conn.execute(
+                    "UPDATE transactions SET category = ?1 WHERE category = ?2",
+                    params![new_name, old_name],
+                )?;
+                conn.execute(
+                    "DELETE FROM categories WHERE name = ?1",
+                    [old_name],
+                )?;
+            }
+        }
+
+        for (name, category_type) in Self::DEFAULT_CATEGORIES {
+            conn.execute(
+                "INSERT OR IGNORE INTO categories (name, category_type, is_default) VALUES (?1, ?2, 1)",
+                params![name, category_type],
+            )?;
+            conn.execute(
+                "UPDATE categories SET category_type = ?1, is_default = 1 WHERE name = ?2",
+                params![category_type, name],
+            )?;
+        }
+
+        conn.execute(
+            "UPDATE categories
+             SET is_default = 0
+             WHERE name NOT IN (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                Self::DEFAULT_CATEGORIES[0].0,
+                Self::DEFAULT_CATEGORIES[1].0,
+                Self::DEFAULT_CATEGORIES[2].0,
+                Self::DEFAULT_CATEGORIES[3].0,
+                Self::DEFAULT_CATEGORIES[4].0,
+                Self::DEFAULT_CATEGORIES[5].0,
+                Self::DEFAULT_CATEGORIES[6].0,
+                Self::DEFAULT_CATEGORIES[7].0,
+            ],
+        )?;
+
+        Ok(())
+    }
+
     fn ensure_default_equity_accounts(conn: &Connection, container_id: i64) -> Result<()> {
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         for name in Self::DEFAULT_EQUITY_ACCOUNTS {
@@ -1355,7 +1498,11 @@ impl Database {
                 Ok(record) => {
                     let amount_str = record.get(amount_column).unwrap_or("").trim();
                     let description = record.get(description_column).unwrap_or("Imported").trim().to_string();
-                    let category = record.get(category_column).unwrap_or("Other").trim().to_string();
+                    let category = record
+                        .get(category_column)
+                        .unwrap_or(Self::DEFAULT_FALLBACK_CATEGORY)
+                        .trim()
+                        .to_string();
                     let date_str = record.get(date_column).unwrap_or("").trim();
 
                     let amount_cents = match Self::parse_amount(amount_str) {

@@ -6,10 +6,11 @@
   import { save } from '@tauri-apps/plugin-dialog';
   import { writeTextFile } from '@tauri-apps/plugin-fs';
   import { open } from '@tauri-apps/plugin-shell';
-  import { LayoutDashboard, TrendingUp, Plus, Settings as SettingsIcon, Github, Wallet, BookOpen, FileText } from 'lucide-svelte';
+  import { LayoutDashboard, TrendingUp, Plus, Settings as SettingsIcon, Github, Wallet, BookOpen, FileText, Tag } from 'lucide-svelte';
   import Overview from './lib/Overview.svelte';
   import Analytics from './lib/Analytics.svelte';
   import Accounts from './lib/Accounts.svelte';
+  import Ledger from './lib/Ledger.svelte';
   import Reports from './lib/Reports.svelte';
   import QuickEntry from './lib/QuickEntry.svelte';
   import EditTransaction from './lib/EditTransaction.svelte';
@@ -53,7 +54,7 @@
     balance: number;
   }
 
-  let activeTab: 'overview' | 'analytics' | 'accounts' | 'reports' = 'overview';
+  let activeTab: 'overview' | 'analytics' | 'accounts' | 'ledger' | 'reports' = 'overview';
   let showQuickEntry = false;
   let showEditTransaction = false;
   let editingTransaction: Transaction | null = null;
@@ -449,6 +450,16 @@
       </button>
 
       <button
+        on:click={() => (activeTab = 'ledger')}
+        class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all {activeTab === 'ledger'
+          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+          : 'text-gray-400 hover:text-white hover:bg-gray-800'}"
+      >
+        <Tag size={20} />
+        <span class="font-medium">Ledger</span>
+      </button>
+
+      <button
         on:click={() => (activeTab = 'reports')}
         class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all {activeTab === 'reports'
           ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
@@ -518,6 +529,10 @@
           loadAccounts();
           loadAccountBalances();
         }}
+      />
+    {:else if activeTab === 'ledger'}
+      <Ledger
+        containerId={selectedContainer?.id}
       />
     {:else if activeTab === 'reports'}
       <Reports

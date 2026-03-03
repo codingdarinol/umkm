@@ -42,14 +42,14 @@
     } catch (error) {
       console.error('Failed to load categories:', error);
       categories = [
-        { name: 'Food & Dining', category_type: 'expense', is_default: true },
-        { name: 'Transportation', category_type: 'expense', is_default: true },
-        { name: 'Shopping', category_type: 'expense', is_default: true },
-        { name: 'Entertainment', category_type: 'expense', is_default: true },
-        { name: 'Bills & Utilities', category_type: 'expense', is_default: true },
-        { name: 'Healthcare', category_type: 'expense', is_default: true },
-        { name: 'Income', category_type: 'income', is_default: true },
-        { name: 'Other', category_type: 'expense', is_default: true },
+        { name: 'Biaya Gaji', category_type: 'expense', is_default: true },
+        { name: 'Beban Transportasi', category_type: 'expense', is_default: true },
+        { name: 'Beban Penyusutan dan Amortisasi', category_type: 'expense', is_default: true },
+        { name: 'Beban Sewa', category_type: 'expense', is_default: true },
+        { name: 'Beban Umum dan Administrasi', category_type: 'expense', is_default: true },
+        { name: 'Beban Pemasaran atau Promosi', category_type: 'expense', is_default: true },
+        { name: 'Penjualan', category_type: 'income', is_default: true },
+        { name: 'Beban Usaha Lainnya', category_type: 'expense', is_default: true },
       ];
     }
   }

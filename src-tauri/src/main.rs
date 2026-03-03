@@ -64,6 +64,17 @@ fn get_transactions_by_account(
 }
 
 #[tauri::command]
+fn get_transactions_by_category(
+    container_id: i64,
+    category: String,
+    limit: Option<i64>,
+    db: tauri::State<Arc<Database>>,
+) -> Result<Vec<Transaction>, String> {
+    db.get_transactions_by_category(container_id, category, limit)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn get_monthly_balance(container_id: i64, db: tauri::State<Arc<Database>>) -> Result<i64, String> {
     db.get_monthly_balance(container_id).map_err(|e| e.to_string())
 }
@@ -159,6 +170,17 @@ fn add_category_with_type(
 #[tauri::command]
 fn delete_category(name: String, db: tauri::State<Arc<Database>>) -> Result<(), String> {
     db.delete_category(name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn update_category(
+    old_name: String,
+    new_name: String,
+    category_type: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.update_category(old_name, new_name, category_type)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -287,6 +309,7 @@ fn main() {
             add_transfer,
             get_transactions,
             get_transactions_by_account,
+            get_transactions_by_category,
             get_monthly_balance,
             get_all_time_balance,
             delete_transaction,
@@ -295,6 +318,7 @@ fn main() {
             add_category,
             add_category_with_type,
             delete_category,
+            update_category,
             get_accounts,
             get_account_balances,
             add_account,
