@@ -6,8 +6,8 @@
   import { FileText, TrendingUp, Scale } from 'lucide-svelte';
 
   export let containerId: number | null = null;
-  export let selectedMonth: string;
-  export let availableMonths: string[];
+  export let selectedYear: string;
+  export let availableYears: string[];
 
   interface ProfitLossLine {
     category: string;
@@ -66,43 +66,30 @@
     return `${sign}${formatted} ${settings.symbol}`;
   };
 
-  function formatMonthLabel(month: string): string {
-    const [year, monthNum] = month.split('-');
-    const date = new Date(parseInt(year), parseInt(monthNum) - 1);
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-    if (month === currentMonth) {
-      return 'Bulan Ini';
-    }
-
-    return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-  }
-
   function formatRange(start: string, end: string): string {
     const startDate = new Date(start);
     const endDate = new Date(end);
     return `${startDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })} - ${endDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}`;
   }
 
-  $: monthOptions = availableMonths.map(month => ({
-    value: month,
-    label: formatMonthLabel(month)
+  $: yearOptions = availableYears.map(year => ({
+    value: year,
+    label: year,
   }));
 
   async function loadReports() {
-    if (!containerId || !selectedMonth) return;
+    if (!containerId || !selectedYear) return;
 
     isLoading = true;
     errorMessage = '';
     try {
-      profitLoss = await invoke<ProfitLossReport>('get_profit_and_loss_for_month', {
+      profitLoss = await invoke<ProfitLossReport>('get_profit_and_loss_for_year', {
         containerId,
-        month: selectedMonth,
+        year: selectedYear,
       });
-      balanceSheet = await invoke<BalanceSheetReport>('get_balance_sheet_for_month', {
+      balanceSheet = await invoke<BalanceSheetReport>('get_balance_sheet_for_year', {
         containerId,
-        month: selectedMonth,
+        year: selectedYear,
       });
     } catch (error) {
       console.error('Failed to load reports:', error);
@@ -112,12 +99,12 @@
     }
   }
 
-  $: if (containerId && selectedMonth) {
+  $: if (containerId && selectedYear) {
     loadReports();
   }
 
-  function handleMonthChange(event: CustomEvent) {
-    dispatch('monthChange', { month: event.detail.value });
+  function handleYearChange(event: CustomEvent) {
+    dispatch('yearChange', { year: event.detail.value });
   }
 </script>
 
@@ -125,15 +112,15 @@
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
     <div>
       <h2 class="text-2xl lg:text-3xl font-black text-white mb-1">Laporan</h2>
-      <p class="text-xs lg:text-sm text-gray-500">Ringkasan laba rugi dan posisi keuangan</p>
+      <p class="text-xs lg:text-sm text-gray-500">Ringkasan laba rugi dan posisi keuangan tahunan</p>
     </div>
     <div class="flex items-center gap-2">
       <FileText size={18} class="text-gray-400 hidden sm:block" />
       <div class="min-w-[160px] sm:min-w-[200px]">
         <Dropdown
-          value={selectedMonth}
-          options={monthOptions}
-          on:change={handleMonthChange}
+          value={selectedYear}
+          options={yearOptions}
+          on:change={handleYearChange}
         />
       </div>
     </div>

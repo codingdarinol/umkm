@@ -39,6 +39,7 @@
   export let containerId: number | null = null;
   export let selectedMonth: string;
   export let availableMonths: string[];
+  export let statsRefreshToken = 0;
   export let transactions: Array<{
     id: number;
     amount: number;
@@ -106,10 +107,11 @@
 
   function formatTime(dateString: string): string {
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '--:--';
     return new Intl.DateTimeFormat('id-ID', {
-      hour: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: true,
+      hour12: false,
     }).format(date);
   }
 
@@ -417,7 +419,7 @@
     }
   }
 
-  $: statsKey = `${containerId ?? 'none'}-${selectedMonth ?? ''}`;
+  $: statsKey = `${containerId ?? 'none'}-${selectedMonth ?? ''}-${statsRefreshToken}`;
   $: if (containerId && selectedMonth && statsKey !== lastStatsKey) {
     lastStatsKey = statsKey;
     loadStatistics();
@@ -654,7 +656,7 @@
         </div>
 
         <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-          <p class="text-gray-500 text-xs mb-2">Rasio Menabung</p>
+          <p class="text-gray-500 text-xs mb-2">Net Profit Margin</p>
           <p class="text-xl font-mono {savingRate >= 0 ? 'text-green-300' : 'text-red-300'}" style="font-feature-settings: 'tnum';">
             {formatPercent(savingRate)}
           </p>

@@ -95,10 +95,10 @@ fn export_csv(container_id: i64, db: tauri::State<Arc<Database>>) -> Result<Stri
 #[tauri::command]
 fn export_reports_csv(
     container_id: i64,
-    month: String,
+    year: String,
     db: tauri::State<Arc<Database>>,
 ) -> Result<ReportsCsvExport, String> {
-    db.export_reports_csv(container_id, month)
+    db.export_reports_csv(container_id, year)
         .map_err(|e| e.to_string())
 }
 
@@ -231,12 +231,32 @@ fn get_profit_and_loss_for_month(
 }
 
 #[tauri::command]
+fn get_profit_and_loss_for_year(
+    container_id: i64,
+    year: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<ProfitLossReport, String> {
+    db.get_profit_and_loss_for_year(container_id, year)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn get_balance_sheet_for_month(
     container_id: i64,
     month: String,
     db: tauri::State<Arc<Database>>,
 ) -> Result<BalanceSheetReport, String> {
     db.get_balance_sheet_for_month(container_id, month)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_balance_sheet_for_year(
+    container_id: i64,
+    year: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<BalanceSheetReport, String> {
+    db.get_balance_sheet_for_year(container_id, year)
         .map_err(|e| e.to_string())
 }
 
@@ -344,7 +364,9 @@ fn main() {
             get_transactions_for_month,
             get_category_totals_for_month,
             get_profit_and_loss_for_month,
+            get_profit_and_loss_for_year,
             get_balance_sheet_for_month,
+            get_balance_sheet_for_year,
             update_transaction,
             get_containers,
             add_container,

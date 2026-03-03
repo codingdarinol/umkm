@@ -579,8 +579,8 @@ impl Database {
         Ok(csv)
     }
 
-    pub fn export_profit_loss_csv(&self, container_id: i64, month: String) -> Result<String> {
-        let report = self.get_profit_and_loss_for_month(container_id, month)?;
+    pub fn export_profit_loss_csv(&self, container_id: i64, year: String) -> Result<String> {
+        let report = self.get_profit_and_loss_for_year(container_id, year)?;
         let mut csv = String::from("Bagian,Kategori,Nilai\n");
 
         for line in report.income {
@@ -615,8 +615,8 @@ impl Database {
         Ok(csv)
     }
 
-    pub fn export_balance_sheet_csv(&self, container_id: i64, month: String) -> Result<String> {
-        let report = self.get_balance_sheet_for_month(container_id, month)?;
+    pub fn export_balance_sheet_csv(&self, container_id: i64, year: String) -> Result<String> {
+        let report = self.get_balance_sheet_for_year(container_id, year)?;
         let mut csv = String::from("Bagian,Akun,Saldo\n");
 
         for account in report.assets {
@@ -664,9 +664,9 @@ impl Database {
         Ok(csv)
     }
 
-    pub fn export_transactions_detail_csv(&self, container_id: i64, month: String) -> Result<String> {
+    pub fn export_transactions_detail_csv(&self, container_id: i64, year: String) -> Result<String> {
         let conn = self.conn.lock().unwrap();
-        let (start_date, end_date) = Self::month_range(&month)?;
+        let (start_date, end_date) = Self::year_range_last_known(&conn, container_id, &year)?;
 
         let container_name: String = conn.query_row(
             "SELECT name FROM containers WHERE id = ?1",
@@ -788,11 +788,11 @@ impl Database {
         Ok(csv)
     }
 
-    pub fn export_reports_csv(&self, container_id: i64, month: String) -> Result<ReportsCsvExport> {
+    pub fn export_reports_csv(&self, container_id: i64, year: String) -> Result<ReportsCsvExport> {
         Ok(ReportsCsvExport {
-            profit_loss: self.export_profit_loss_csv(container_id, month.clone())?,
-            balance_sheet: self.export_balance_sheet_csv(container_id, month.clone())?,
-            transactions: self.export_transactions_detail_csv(container_id, month)?,
+            profit_loss: self.export_profit_loss_csv(container_id, year.clone())?,
+            balance_sheet: self.export_balance_sheet_csv(container_id, year.clone())?,
+            transactions: self.export_transactions_detail_csv(container_id, year)?,
         })
     }
 
@@ -1281,6 +1281,156 @@ impl Database {
         })
     }
 
+    pub fn get_profit_and_loss_for_year(&self, container_id: i64, year: String) -> Result<ProfitLossReport> {
+        let conn = self.conn.lock().unwrap();
+        let (start_date, end_date) = Self::year_range_last_known(&conn, container_id, &year)?;
+
+        let mut income_stmt = conn.prepare(
+            "SELECT t.category, SUM(ABS(t.amount)) as total
+             FROM transactions t
+             LEFT JOIN categories c ON c.name = t.category
+             WHERE t.container_id = ?1 AND t.transfer_id IS NULL
+               AND t.date >= ?2 AND t.date <= ?3
+               AND COALESCE(c.category_type, 'expense') = 'income'
+             GROUP BY t.category
+             ORDER BY total DESC",
+        )?;
+        let income_iter = income_stmt.query_map(
+            params![container_id, &start_date, &end_date],
+            |row| {
+                Ok(ProfitLossLine {
+                    category: row.get(0)?,
+                    total: row.get(1)?,
+                })
+            },
+        )?;
+        let income: Vec<ProfitLossLine> = income_iter.collect::<Result<Vec<_>>>()?;
+
+        let mut expense_stmt = conn.prepare(
+            "SELECT t.category, SUM(ABS(t.amount)) as total
+             FROM transactions t
+             LEFT JOIN categories c ON c.name = t.category
+             WHERE t.container_id = ?1 AND t.transfer_id IS NULL
+               AND t.date >= ?2 AND t.date <= ?3
+               AND COALESCE(c.category_type, 'expense') = 'expense'
+             GROUP BY t.category
+             ORDER BY total DESC",
+        )?;
+        let expense_iter = expense_stmt.query_map(
+            params![container_id, &start_date, &end_date],
+            |row| {
+                Ok(ProfitLossLine {
+                    category: row.get(0)?,
+                    total: row.get(1)?,
+                })
+            },
+        )?;
+        let expense: Vec<ProfitLossLine> = expense_iter.collect::<Result<Vec<_>>>()?;
+
+        let total_income: i64 = income.iter().map(|line| line.total).sum();
+        let total_expense: i64 = expense.iter().map(|line| line.total).sum();
+        let net_income = total_income - total_expense;
+
+        Ok(ProfitLossReport {
+            start_date,
+            end_date,
+            income,
+            expense,
+            total_income,
+            total_expense,
+            net_income,
+        })
+    }
+
+    pub fn get_balance_sheet_for_year(&self, container_id: i64, year: String) -> Result<BalanceSheetReport> {
+        let conn = self.conn.lock().unwrap();
+        let (start_date, end_date) = Self::year_range_last_known(&conn, container_id, &year)?;
+
+        let mut stmt = conn.prepare(
+            "SELECT a.id, a.name, a.account_type, a.opening_balance, a.container_id, a.created_at,
+                    COALESCE(SUM(t.amount), 0) + a.opening_balance AS balance
+             FROM accounts a
+             LEFT JOIN transactions t ON t.account_id = a.id AND t.date <= ?2
+             WHERE a.container_id = ?1
+             GROUP BY a.id
+             ORDER BY a.name ASC",
+        )?;
+
+        let accounts_iter = stmt.query_map(params![container_id, &end_date], |row| {
+            Ok(AccountBalance {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                account_type: row.get(2)?,
+                opening_balance: row.get(3)?,
+                container_id: row.get(4)?,
+                created_at: row.get(5)?,
+                balance: row.get(6)?,
+            })
+        })?;
+
+        let mut assets = Vec::new();
+        let mut liabilities = Vec::new();
+        let mut equity = Vec::new();
+
+        for account in accounts_iter {
+            let account = account?;
+            match account.account_type.as_str() {
+                "asset" | "contra_asset" => assets.push(account),
+                "liability" => liabilities.push(account),
+                _ => equity.push(account),
+            }
+        }
+
+        let total_income: i64 = conn.query_row(
+            "SELECT COALESCE(SUM(ABS(t.amount)), 0)
+             FROM transactions t
+             LEFT JOIN categories c ON c.name = t.category
+             WHERE t.container_id = ?1 AND t.transfer_id IS NULL
+               AND t.date >= ?2 AND t.date <= ?3
+               AND COALESCE(c.category_type, 'expense') = 'income'",
+            params![container_id, &start_date, &end_date],
+            |row| row.get(0),
+        )?;
+
+        let total_expense: i64 = conn.query_row(
+            "SELECT COALESCE(SUM(ABS(t.amount)), 0)
+             FROM transactions t
+             LEFT JOIN categories c ON c.name = t.category
+             WHERE t.container_id = ?1 AND t.transfer_id IS NULL
+               AND t.date >= ?2 AND t.date <= ?3
+               AND COALESCE(c.category_type, 'expense') = 'expense'",
+            params![container_id, &start_date, &end_date],
+            |row| row.get(0),
+        )?;
+
+        let net_income = total_income - total_expense;
+
+        equity.retain(|account| account.name != "Laba Tahun Berjalan");
+        equity.push(AccountBalance {
+            id: 0,
+            name: "Laba Tahun Berjalan".to_string(),
+            account_type: "equity".to_string(),
+            opening_balance: 0,
+            balance: net_income,
+            container_id,
+            created_at: end_date.clone(),
+        });
+
+        let total_assets: i64 = assets.iter().map(|a| a.balance).sum();
+        let total_liabilities: i64 = liabilities.iter().map(|a| a.balance).sum();
+        let total_equity: i64 = equity.iter().map(|a| a.balance).sum();
+
+        Ok(BalanceSheetReport {
+            as_of: end_date,
+            assets,
+            liabilities,
+            equity,
+            total_assets,
+            total_liabilities,
+            total_equity,
+        })
+    }
+
     pub fn get_containers(&self) -> Result<Vec<Container>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT id, name, created_at, is_default FROM containers ORDER BY is_default DESC, created_at ASC")?;
@@ -1500,12 +1650,42 @@ impl Database {
         Ok((start_date, end_date))
     }
 
+    fn year_range(year: &str) -> Result<(String, String)> {
+        let year_num: i32 = year.parse().map_err(|_| {
+            rusqlite::Error::InvalidParameterName("Invalid year".to_string())
+        })?;
+        let start = chrono::NaiveDate::from_ymd_opt(year_num, 1, 1).ok_or_else(|| {
+            rusqlite::Error::InvalidParameterName("Invalid year".to_string())
+        })?;
+        let end = chrono::NaiveDate::from_ymd_opt(year_num, 12, 31).ok_or_else(|| {
+            rusqlite::Error::InvalidParameterName("Invalid year".to_string())
+        })?;
+
+        let start_date = format!("{} 00:00:00", start.format("%Y-%m-%d"));
+        let end_date = format!("{} 23:59:59", end.format("%Y-%m-%d"));
+        Ok((start_date, end_date))
+    }
+
+    fn year_range_last_known(conn: &Connection, container_id: i64, year: &str) -> Result<(String, String)> {
+        let (start_date, year_end) = Self::year_range(year)?;
+        let last_known: Option<String> = conn.query_row(
+            "SELECT MAX(date)
+             FROM transactions
+             WHERE container_id = ?1 AND date >= ?2 AND date <= ?3",
+            params![container_id, &start_date, &year_end],
+            |row| row.get(0),
+        )?;
+        let end_date = last_known.unwrap_or(year_end);
+        Ok((start_date, end_date))
+    }
+
     fn normalize_transaction_date(date: Option<String>) -> Result<String> {
         match date {
             Some(value) if !value.trim().is_empty() => {
                 let parsed = chrono::NaiveDate::parse_from_str(value.trim(), "%Y-%m-%d")
                     .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid date format. Expected YYYY-MM-DD".to_string()))?;
-                Ok(format!("{} 00:00:00", parsed.format("%Y-%m-%d")))
+                let now_time = chrono::Local::now().naive_local().time();
+                Ok(parsed.and_time(now_time).format("%Y-%m-%d %H:%M:%S").to_string())
             }
             _ => Ok(chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()),
         }

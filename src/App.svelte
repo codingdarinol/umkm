@@ -68,7 +68,9 @@
   let transactions: Transaction[] = [];
   let categoryTotals: Array<[string, number]> = [];
   let availableMonths: string[] = [];
+  let availableYears: string[] = [];
   let selectedMonth: string = '';
+  let selectedReportYear: string = '';
   let containers: Container[] = [];
   let selectedContainer: Container | null = null;
   let accounts: Account[] = [];
@@ -76,10 +78,15 @@
   let toastMessage = '';
   let toastType: 'success' | 'error' | 'info' | 'warning' = 'info';
   let showToast = false;
+  let overviewStatsRefreshToken = 0;
 
   function getCurrentMonth() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function getCurrentYear() {
+    return String(new Date().getFullYear());
   }
 
   async function loadContainers() {
@@ -124,14 +131,22 @@
       monthSet.add(currentMonth);
       
       availableMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a));
+      const yearSet = new Set(availableMonths.map((m) => m.split('-')[0]));
+      yearSet.add(getCurrentYear());
+      availableYears = Array.from(yearSet).sort((a, b) => b.localeCompare(a));
       
       if (!selectedMonth) {
         selectedMonth = currentMonth;
       }
+      if (!selectedReportYear || !availableYears.includes(selectedReportYear)) {
+        selectedReportYear = availableYears[0] || getCurrentYear();
+      }
     } catch (error) {
       console.error('Failed to load months:', error);
       availableMonths = [getCurrentMonth()];
+      availableYears = [getCurrentYear()];
       selectedMonth = getCurrentMonth();
+      selectedReportYear = getCurrentYear();
     }
   }
 
@@ -181,6 +196,7 @@
         date: date || null,
       });
       await loadData();
+      overviewStatsRefreshToken += 1;
       await loadAccountBalances();
       showQuickEntry = false;
     } catch (error) {
@@ -202,6 +218,7 @@
         date: date || null,
       });
       await loadData();
+      overviewStatsRefreshToken += 1;
       await loadAccountBalances();
       showQuickEntry = false;
     } catch (error) {
@@ -213,6 +230,7 @@
     try {
       await invoke('delete_transaction', { id: event.detail.id });
       await loadData();
+      overviewStatsRefreshToken += 1;
       await loadAccountBalances();
     } catch (error) {
       console.error('Failed to delete transaction:', error);
@@ -238,6 +256,7 @@
         accountId,
       });
       await loadData();
+      overviewStatsRefreshToken += 1;
       await loadAccountBalances();
       showEditTransaction = false;
       editingTransaction = null;
@@ -250,13 +269,13 @@
     if (!selectedContainer) return;
     
     try {
-      const month = selectedMonth || getCurrentMonth();
+      const year = selectedReportYear || getCurrentYear();
       const reports = await invoke<{ profit_loss: string; balance_sheet: string; transactions: string }>('export_reports_csv', {
         containerId: selectedContainer.id,
-        month,
+        year,
       });
       const profitLossPath = await save({
-        defaultPath: `spent-${selectedContainer.name}-${month}-laba-rugi.csv`,
+        defaultPath: `spent-${selectedContainer.name}-${year}-laba-rugi.csv`,
         filters: [{
           name: 'CSV',
           extensions: ['csv']
@@ -268,7 +287,7 @@
       }
 
       const balanceSheetPath = await save({
-        defaultPath: `spent-${selectedContainer.name}-${month}-posisi-keuangan.csv`,
+        defaultPath: `spent-${selectedContainer.name}-${year}-posisi-keuangan.csv`,
         filters: [{
           name: 'CSV',
           extensions: ['csv']
@@ -280,7 +299,7 @@
       }
 
       const transactionsPath = await save({
-        defaultPath: `spent-${selectedContainer.name}-${month}-transaksi.csv`,
+        defaultPath: `spent-${selectedContainer.name}-${year}-transaksi.csv`,
         filters: [{
           name: 'CSV',
           extensions: ['csv']
@@ -472,17 +491,17 @@
         <FileText size={20} />
         <span class="font-medium">Laporan</span>
       </button>
-    </nav>
 
-    <div class="p-4 space-y-3 border-t border-gray-800">
       <button
         on:click={() => (showQuickEntry = true)}
-        class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all shadow-lg shadow-blue-600/20"
+        class="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all shadow-lg shadow-blue-600/20"
       >
         <Plus size={20} />
         Entry Cepat
       </button>
-      
+    </nav>
+
+    <div class="p-4 space-y-3 border-t border-gray-800">
       <button
         on:click={() => (showCommandPalette = true)}
         class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg font-medium transition-all text-sm"
@@ -519,6 +538,7 @@
         {selectedMonth}
         {availableMonths}
         {accounts}
+        statsRefreshToken={overviewStatsRefreshToken}
         on:delete={handleDeleteTransaction}
         on:edit={handleEditTransaction}
         on:refresh={loadData}
@@ -542,9 +562,9 @@
     {:else if activeTab === 'reports'}
       <Reports
         containerId={selectedContainer?.id}
-        {selectedMonth}
-        {availableMonths}
-        on:monthChange={(e) => selectedMonth = e.detail.month}
+        selectedYear={selectedReportYear}
+        {availableYears}
+        on:yearChange={(e) => selectedReportYear = e.detail.year}
       />
     {/if}
   </div>
