@@ -494,7 +494,7 @@
 
       <button
         on:click={() => (showQuickEntry = true)}
-        class="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all shadow-lg shadow-blue-600/20"
+        class="w-full mt-8 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all shadow-lg shadow-blue-600/20"
       >
         <Plus size={20} />
         Entry Cepat
