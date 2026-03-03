@@ -11,6 +11,7 @@
     name: string;
     category_type: 'income' | 'expense';
     is_default: boolean;
+    balance: number;
   }
 
   interface Account {
@@ -61,6 +62,11 @@
     return type === 'income' ? 'Income' : 'Expense';
   }
 
+  function formatSignedCurrency(cents: number): string {
+    const sign = cents > 0 ? '+' : cents < 0 ? '-' : '';
+    return `${sign}${formatCurrency(cents)}`;
+  }
+
   function getAccountName(accountId: number): string {
     if (!accountId) return 'Tanpa Akun';
     return accounts.find(acc => acc.id === accountId)?.name || 'Tanpa Akun';
@@ -89,10 +95,19 @@
   async function loadCategories() {
     isLoadingCategories = true;
     try {
-      categories = await invoke<Category[]>('get_categories');
+      categories = await invoke<Category[]>('get_category_balances', { containerId });
     } catch (error) {
       console.error('Failed to load categories:', error);
-      categories = [];
+      categories = [
+        { name: 'Biaya Gaji', category_type: 'expense', is_default: true, balance: 0 },
+        { name: 'Beban Transportasi', category_type: 'expense', is_default: true, balance: 0 },
+        { name: 'Beban Penyusutan dan Amortisasi', category_type: 'expense', is_default: true, balance: 0 },
+        { name: 'Beban Sewa', category_type: 'expense', is_default: true, balance: 0 },
+        { name: 'Beban Umum dan Administrasi', category_type: 'expense', is_default: true, balance: 0 },
+        { name: 'Beban Pemasaran atau Promosi', category_type: 'expense', is_default: true, balance: 0 },
+        { name: 'Penjualan', category_type: 'income', is_default: true, balance: 0 },
+        { name: 'Beban Usaha Lainnya', category_type: 'expense', is_default: true, balance: 0 },
+      ];
     } finally {
       isLoadingCategories = false;
     }
@@ -186,6 +201,7 @@
         name: newName,
         category_type: editCategoryType,
         is_default: isDefault,
+        balance: selectedCategory.balance,
       };
       showEditCategory = false;
       resetEditCategoryForm();
@@ -253,6 +269,8 @@
     const match = categories.find(cat => cat.name === selectedCategory?.name);
     if (!match && showDrawer) {
       closeDrawer();
+    } else if (match && match !== selectedCategory) {
+      selectedCategory = match;
     }
   }
 
@@ -348,13 +366,19 @@
                 <span class="w-2.5 h-2.5 rounded-full {category.category_type === 'income' ? 'bg-green-400' : 'bg-red-400'}"></span>
                 <div class="min-w-0">
                   <p class="text-white font-semibold truncate">{category.name}</p>
-                  <p class="text-xs text-gray-500 uppercase tracking-wider">{getCategoryTypeLabel(category.category_type)}</p>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider">{getCategoryTypeLabel(category.category_type)}</p>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full {category.is_default ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-300'}">
+                      {category.is_default ? 'Default' : 'Custom'}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs px-2 py-1 rounded-full {category.is_default ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-300'}">
-                  {category.is_default ? 'Default' : 'Custom'}
-                </span>
+              <div class="text-right ml-3 flex-shrink-0">
+                <p class="text-base font-mono {category.balance > 0 ? 'text-green-400' : category.balance < 0 ? 'text-red-400' : 'text-white'}" style="font-feature-settings: 'tnum';">
+                  {formatSignedCurrency(category.balance)}
+                </p>
+                <p class="text-[11px] text-gray-500">Saldo Saat Ini</p>
               </div>
             </button>
           {/each}

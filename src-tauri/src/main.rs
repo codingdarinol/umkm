@@ -3,8 +3,8 @@
 mod database;
 
 use database::{
-    Account, AccountBalance, BalanceSheetReport, Category, Container, Database, NewTransaction,
-    ProfitLossReport, ReportsCsvExport, Transaction,
+    Account, AccountBalance, BalanceSheetReport, Category, CategoryBalance, Container, Database,
+    NewTransaction, ProfitLossReport, ReportsCsvExport, Transaction,
 };
 use std::sync::Arc;
 use tauri::Manager;
@@ -112,6 +112,15 @@ fn get_category_totals(container_id: i64, db: tauri::State<Arc<Database>>) -> Re
 #[tauri::command]
 fn get_categories(db: tauri::State<Arc<Database>>) -> Result<Vec<Category>, String> {
     db.get_categories().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_category_balances(
+    container_id: i64,
+    db: tauri::State<Arc<Database>>,
+) -> Result<Vec<CategoryBalance>, String> {
+    db.get_category_balances(container_id)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -315,6 +324,7 @@ fn main() {
             delete_transaction,
             get_category_totals,
             get_categories,
+            get_category_balances,
             add_category,
             add_category_with_type,
             delete_category,

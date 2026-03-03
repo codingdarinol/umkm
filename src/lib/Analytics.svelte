@@ -56,7 +56,7 @@
         <div class="p-2 bg-purple-500/10 rounded-lg">
           <PieChart class="text-purple-400" size={20} />
         </div>
-        <h3 class="text-lg font-bold text-white">Spending by Category</h3>
+        <h3 class="text-lg font-bold text-white">Biaya berdasar Kategori</h3>
       </div>
 
       {#if categoryTotals.length === 0}
@@ -103,7 +103,7 @@
         <div class="p-2 bg-blue-500/10 rounded-lg">
           <PieChart class="text-blue-400" size={20} />
         </div>
-        <h3 class="text-lg font-bold text-white">Category Distribution</h3>
+        <h3 class="text-lg font-bold text-white">Distribusi Biaya</h3>
       </div>
 
       {#if categoryTotals.length > 0}

@@ -42,6 +42,14 @@ pub struct Category {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct CategoryBalance {
+    pub name: String,
+    pub category_type: String,
+    pub is_default: bool,
+    pub balance: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Transaction {
     pub id: i64,
     pub amount: i64,
@@ -837,6 +845,32 @@ impl Database {
             })
         })?;
         categories.collect()
+    }
+
+    pub fn get_category_balances(&self, container_id: i64) -> Result<Vec<CategoryBalance>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT c.name, c.category_type, c.is_default,
+                    COALESCE(SUM(t.amount), 0) as balance
+             FROM categories c
+             LEFT JOIN transactions t
+               ON t.category = c.name
+              AND t.container_id = ?1
+              AND (t.transfer_id IS NULL OR t.transfer_id = 0)
+             GROUP BY c.name, c.category_type, c.is_default
+             ORDER BY c.is_default DESC, c.name ASC",
+        )?;
+
+        let rows = stmt.query_map([container_id], |row| {
+            Ok(CategoryBalance {
+                name: row.get(0)?,
+                category_type: row.get(1)?,
+                is_default: row.get::<_, i64>(2)? == 1,
+                balance: row.get(3)?,
+            })
+        })?;
+
+        rows.collect()
     }
 
     pub fn get_accounts(&self, container_id: i64) -> Result<Vec<Account>> {

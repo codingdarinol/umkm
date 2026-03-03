@@ -265,7 +265,7 @@
         </label>
         <div class="relative">
           <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <span class="text-gray-500 text-lg">$</span>
+            <span class="text-gray-500 text-lg">Rp</span>
           </div>
           <input
             id="amount"
@@ -320,21 +320,6 @@
         </div>
       {:else}
         <div>
-          <label for="account" class="block text-sm font-semibold text-gray-300 mb-2">
-            Akun *
-          </label>
-          <Dropdown
-            value={accountId}
-            options={accountOptions}
-            on:change={handleAccountChange}
-            placeholder="Pilih akun"
-          />
-          {#if accounts.length === 0}
-            <p class="text-xs text-red-400 mt-1.5">Belum ada akun. Tambahkan di menu Akun.</p>
-          {/if}
-        </div>
-
-        <div>
           <div class="flex items-center justify-between mb-2">
             <label for="category" class="block text-sm font-semibold text-gray-300">
               Category
@@ -387,6 +372,21 @@
               <Trash2 size={14} />
               <span>Delete "{category}"</span>
             </button>
+          {/if}
+        </div>
+
+        <div>
+          <label for="account" class="block text-sm font-semibold text-gray-300 mb-2">
+            Akun *
+          </label>
+          <Dropdown
+            value={accountId}
+            options={accountOptions}
+            on:change={handleAccountChange}
+            placeholder="Pilih akun"
+          />
+          {#if accounts.length === 0}
+            <p class="text-xs text-red-400 mt-1.5">Belum ada akun. Tambahkan di menu Akun.</p>
           {/if}
         </div>
       {/if}
