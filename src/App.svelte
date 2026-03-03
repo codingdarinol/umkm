@@ -139,16 +139,18 @@
     if (!selectedContainer) return;
     
     try {
-      if (selectedMonth === getCurrentMonth()) {
-        monthlyBalance = await invoke<number>('get_monthly_balance', { containerId: selectedContainer.id });
-        transactions = await invoke<Transaction[]>('get_transactions', { containerId: selectedContainer.id, limit: 50 });
-        categoryTotals = await invoke<Array<[string, number]>>('get_category_totals', { containerId: selectedContainer.id });
-      } else {
-        monthlyBalance = await invoke<number>('get_balance_for_month', { containerId: selectedContainer.id, month: selectedMonth });
-        transactions = await invoke<Transaction[]>('get_transactions_for_month', { containerId: selectedContainer.id, month: selectedMonth, limit: 50 });
-        categoryTotals = await invoke<Array<[string, number]>>('get_category_totals_for_month', { containerId: selectedContainer.id, month: selectedMonth });
-      }
-      allTimeBalance = await invoke<number>('get_all_time_balance', { containerId: selectedContainer.id });
+      const month = selectedMonth || getCurrentMonth();
+      const [monthBalance, monthTransactions, monthCategoryTotals, lifetimeBalance] = await Promise.all([
+        invoke<number>('get_balance_for_month', { containerId: selectedContainer.id, month }),
+        invoke<Transaction[]>('get_transactions_for_month', { containerId: selectedContainer.id, month, limit: null }),
+        invoke<Array<[string, number]>>('get_category_totals_for_month', { containerId: selectedContainer.id, month }),
+        invoke<number>('get_all_time_balance', { containerId: selectedContainer.id }),
+      ]);
+
+      monthlyBalance = monthBalance;
+      transactions = monthTransactions;
+      categoryTotals = monthCategoryTotals;
+      allTimeBalance = lifetimeBalance;
     } catch (error) {
       console.error('Failed to load data:', error);
     }
@@ -168,7 +170,7 @@
   async function handleAddTransaction(event: CustomEvent) {
     if (!selectedContainer) return;
     
-    const { amount, description, category, accountId } = event.detail;
+    const { amount, description, category, accountId, date } = event.detail;
     try {
       await invoke('add_transaction', {
         amount: Math.round(amount * 100),
@@ -176,6 +178,7 @@
         category: category || null,
         accountId,
         containerId: selectedContainer.id,
+        date: date || null,
       });
       await loadData();
       await loadAccountBalances();
@@ -188,7 +191,7 @@
   async function handleAddTransfer(event: CustomEvent) {
     if (!selectedContainer) return;
 
-    const { amount, description, fromAccountId, toAccountId } = event.detail;
+    const { amount, description, fromAccountId, toAccountId, date } = event.detail;
     try {
       await invoke('add_transfer', {
         amount: Math.round(amount * 100),
@@ -196,6 +199,7 @@
         fromAccountId,
         toAccountId,
         containerId: selectedContainer.id,
+        date: date || null,
       });
       await loadData();
       await loadAccountBalances();
@@ -375,7 +379,7 @@
 
   $: containerOptions = containers.map(c => ({
     value: c.id,
-    label: c.is_default ? `${c.name} (Default)` : c.name
+    label: c.is_default ? `${c.name} (Utama)` : c.name
   }));
 
   function handleContainerDeleted(event: CustomEvent) {
@@ -408,7 +412,7 @@
 
     {#if selectedContainer}
       <div class="px-4 pt-4 pb-2">
-        <label class="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Active Container</label>
+        <label class="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Kontainer Aktif</label>
         <Dropdown
           value={selectedContainer.id}
           options={containerOptions}
@@ -426,7 +430,7 @@
           : 'text-gray-400 hover:text-white hover:bg-gray-800'}"
       >
         <LayoutDashboard size={20} />
-        <span class="font-medium">Overview</span>
+        <span class="font-medium">Dasbor</span>
       </button>
 
       <button
@@ -436,7 +440,7 @@
           : 'text-gray-400 hover:text-white hover:bg-gray-800'}"
       >
         <TrendingUp size={20} />
-        <span class="font-medium">Analytics</span>
+        <span class="font-medium">Analitik</span>
       </button>
 
       <button
@@ -456,7 +460,7 @@
           : 'text-gray-400 hover:text-white hover:bg-gray-800'}"
       >
         <Tag size={20} />
-        <span class="font-medium">Ledger</span>
+        <span class="font-medium">Buku Besar</span>
       </button>
 
       <button
@@ -476,7 +480,7 @@
         class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all shadow-lg shadow-blue-600/20"
       >
         <Plus size={20} />
-        Quick Add
+        Entry Cepat
       </button>
       
       <button
@@ -484,7 +488,7 @@
         class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg font-medium transition-all text-sm"
       >
         <SettingsIcon size={16} />
-        Commands
+        Perintah
       </button>
       
       <div class="flex items-center justify-between px-2">
@@ -499,7 +503,7 @@
           on:click={handleExport}
           class="text-xs text-gray-500 hover:text-gray-300 transition-colors"
         >
-          Export 3 CSV
+          Ekspor 3 CSV
         </button>
       </div>
     </div>
@@ -508,6 +512,7 @@
   <div class="flex-1 overflow-hidden flex flex-col">
     {#if activeTab === 'overview'}
       <Overview
+        containerId={selectedContainer?.id}
         {monthlyBalance}
         {allTimeBalance}
         {transactions}

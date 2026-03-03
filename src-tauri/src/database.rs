@@ -69,6 +69,7 @@ pub struct NewTransaction {
     pub category: Option<String>,
     pub container_id: i64,
     pub account_id: i64,
+    pub date: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -286,7 +287,7 @@ impl Database {
 
     pub fn add_transaction(&self, transaction: NewTransaction) -> Result<Transaction> {
         let conn = self.conn.lock().unwrap();
-        let date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let date = Self::normalize_transaction_date(transaction.date)?;
         
         let description = transaction.description.unwrap_or_else(|| "Untitled".to_string());
         let category = transaction
@@ -327,6 +328,7 @@ impl Database {
         to_account_id: i64,
         amount: i64,
         description: Option<String>,
+        date: Option<String>,
     ) -> Result<i64> {
         if from_account_id == to_account_id {
             return Err(rusqlite::Error::InvalidParameterName(
@@ -340,7 +342,7 @@ impl Database {
         }
 
         let conn = self.conn.lock().unwrap();
-        let date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let date = Self::normalize_transaction_date(date)?;
         let description = description.unwrap_or_else(|| "Transfer".to_string());
 
         let transfer_id: i64 = conn.query_row(
@@ -1496,6 +1498,17 @@ impl Database {
         let end_date = format!("{} 23:59:59", end.format("%Y-%m-%d"));
 
         Ok((start_date, end_date))
+    }
+
+    fn normalize_transaction_date(date: Option<String>) -> Result<String> {
+        match date {
+            Some(value) if !value.trim().is_empty() => {
+                let parsed = chrono::NaiveDate::parse_from_str(value.trim(), "%Y-%m-%d")
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid date format. Expected YYYY-MM-DD".to_string()))?;
+                Ok(format!("{} 00:00:00", parsed.format("%Y-%m-%d")))
+            }
+            _ => Ok(chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()),
+        }
     }
 }
 

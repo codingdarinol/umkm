@@ -16,6 +16,7 @@ fn add_transaction(
     category: Option<String>,
     container_id: i64,
     account_id: i64,
+    date: Option<String>,
     db: tauri::State<Arc<Database>>,
 ) -> Result<Transaction, String> {
     let new_transaction = NewTransaction {
@@ -24,6 +25,7 @@ fn add_transaction(
         category,
         container_id,
         account_id,
+        date,
     };
     
     db.add_transaction(new_transaction)
@@ -37,9 +39,10 @@ fn add_transfer(
     container_id: i64,
     from_account_id: i64,
     to_account_id: i64,
+    date: Option<String>,
     db: tauri::State<Arc<Database>>,
 ) -> Result<i64, String> {
-    db.add_transfer(container_id, from_account_id, to_account_id, amount, description)
+    db.add_transfer(container_id, from_account_id, to_account_id, amount, description, date)
         .map_err(|e| e.to_string())
 }
 

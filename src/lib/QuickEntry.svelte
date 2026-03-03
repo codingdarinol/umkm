@@ -35,6 +35,25 @@
   let accountId: number | null = null;
   let fromAccountId: number | null = null;
   let toAccountId: number | null = null;
+  let transactionDate = getTodayDate();
+
+  function getTodayDate(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatDateIndonesia(value: string): string {
+    if (!value) return '-';
+    const parsed = new Date(`${value}T00:00:00`);
+    return parsed.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
 
   async function loadCategories() {
     try {
@@ -103,6 +122,7 @@
         description: description.trim() || null,
         fromAccountId,
         toAccountId,
+        date: transactionDate,
       });
 
       amount = '';
@@ -127,6 +147,7 @@
       description: description.trim() || null,
       category: category || null,
       accountId,
+      date: transactionDate,
     });
 
     amount = '';
@@ -277,6 +298,21 @@
             required
           />
         </div>
+      </div>
+
+      <div>
+        <label for="transaction-date" class="block text-sm font-semibold text-gray-300 mb-2">
+          Tanggal *
+        </label>
+        <input
+          id="transaction-date"
+          type="date"
+          bind:value={transactionDate}
+          lang="id-ID"
+          class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500 transition-all"
+          required
+        />
+        <p class="text-xs text-gray-500 mt-1.5">Format: {formatDateIndonesia(transactionDate)}</p>
       </div>
 
       <div>

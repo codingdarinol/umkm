@@ -46,8 +46,8 @@
 
 <div class="p-4 lg:p-8 space-y-4 lg:space-y-6 h-full overflow-auto">
   <div>
-    <h2 class="text-2xl lg:text-3xl font-black text-white mb-1">Analytics</h2>
-    <p class="text-xs lg:text-sm text-gray-500">Understand your spending patterns</p>
+    <h2 class="text-2xl lg:text-3xl font-black text-white mb-1">Analitik</h2>
+    <p class="text-xs lg:text-sm text-gray-500">Pahami pola pengeluaran Anda</p>
   </div>
 
   <div class="grid grid-cols-1 gap-4 lg:gap-6">
@@ -64,8 +64,8 @@
           <div class="inline-flex p-4 bg-gray-800 rounded-full mb-4">
             <Package size={32} class="text-gray-600" />
           </div>
-          <p class="text-gray-500">No spending data yet</p>
-          <p class="text-gray-600 text-sm mt-1">Add some transactions to see insights</p>
+          <p class="text-gray-500">Belum ada data pengeluaran</p>
+          <p class="text-gray-600 text-sm mt-1">Tambahkan transaksi untuk melihat insight</p>
         </div>
       {:else}
         <div class="space-y-4">
@@ -78,7 +78,7 @@
                   <div class="w-2 h-2 rounded-full {getCategoryColor(i)}"></div>
                   <span class="text-sm font-medium text-gray-300">{category}</span>
                   {#if isTopCategory}
-                    <span class="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full">Top Spending</span>
+                    <span class="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full">Pengeluaran Tertinggi</span>
                   {/if}
                 </div>
                 <div class="text-right">
@@ -154,7 +154,7 @@
         </div>
       {:else}
         <div class="py-12 text-center">
-          <p class="text-gray-500">No spending data to visualize</p>
+          <p class="text-gray-500">Belum ada data pengeluaran untuk divisualisasikan</p>
         </div>
       {/if}
     </div>
